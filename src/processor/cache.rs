@@ -110,3 +110,14 @@ pub struct CacheNode<T: Clone> {
     pub index: u32,
     pub cache_value: T,
 }
+
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[test]
+    pub fn test_asd(){
+
+    }
+}
