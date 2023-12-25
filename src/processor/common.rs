@@ -4,17 +4,18 @@ use crate::error::IndexerResult;
 use crate::event::{AddressType, IndexerEvent};
 use crate::{Component, IndexProcessor};
 use crate::configuration::base::IndexerConfiguration;
+use crate::notifier::internal_safe::InternalSafeChannel;
 
 #[derive(Clone, Debug)]
 pub struct IndexerProcessorImpl {
-    tx: crossbeam::channel::Sender<Vec<u8>>,
+    tx: InternalSafeChannel<Vec<u8>>,
 
 
 }
 
 
 impl IndexerProcessorImpl {
-    pub fn new(tx: crossbeam::channel::Sender<Vec<u8>>) -> Self {
+    pub fn new(tx: InternalSafeChannel<Vec<u8>>) -> Self {
         Self { tx }
     }
 }
@@ -53,7 +54,7 @@ impl Component for IndexerProcessorImpl {
 
 impl IndexerProcessorImpl {
     pub(crate) async fn do_handle_new_tx_coming(&self, data: &Vec<u8>) {
-        self.tx.send(data.clone()).unwrap();
+        self.tx.send(data.clone());
     }
     pub(crate) async fn do_handle_get_balance(&self, address: &AddressType) {
         todo!()

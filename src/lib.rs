@@ -1,3 +1,4 @@
+use std::ops::DerefMut;
 use tokio::task::JoinHandle;
 use std::time::Duration;
 use async_channel::Sender;
@@ -18,23 +19,7 @@ pub mod component;
 pub mod configuration;
 pub mod notifier;
 pub mod factory;
-
-
-
-#[no_mangle]
-pub extern "C" fn create_processor() ->CommonNotifier {
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
-        .format_target(false)
-        .init();
-    let ret=sync_create_and_start_processor(IndexerConfiguration{
-        mq: ZMQConfiguration {
-            zmq_url: "tcp://0.0.0.0:5555".to_string(),
-            zmq_topic: vec![],
-        },
-    });
-    ret
-}
+mod python;
 
 
 #[derive(Clone, Debug)]
@@ -203,24 +188,24 @@ mod tests {
     use super::*;
 
 
-    // #[test]
-    // pub fn test_notifier() {
-    //     env_logger::builder()
-    //         .filter_level(log::LevelFilter::Debug)
-    //         .format_target(false)
-    //         .init();
-    //     let (exit_tx, exit_rx) = watch::channel(());
-    //     let notifier = sync_create_and_start_processor(exit_rx.clone(), IndexerConfiguration {
-    //         mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:5555".to_string(), zmq_topic: vec![] },
-    //     });
-    //     loop {
-    //         let data = notifier.get();
-    //         if data.len() > 0 {
-    //             info!("receive data {:?}", data);
-    //         }
-    //         sleep(Duration::from_secs(3))
-    //     }
-    // }
+    #[test]
+    pub fn test_notifier() {
+        env_logger::builder()
+            .filter_level(log::LevelFilter::Debug)
+            .format_target(false)
+            .init();
+        // let (exit_tx, exit_rx) = watch::channel(());
+        let notifier = sync_create_and_start_processor(IndexerConfiguration {
+            mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:5555".to_string(), zmq_topic: vec![] },
+        });
+        loop {
+            let data = notifier.get();
+            if data.len() > 0 {
+                info!("receive data {:?}", data);
+            }
+            sleep(Duration::from_secs(3))
+        }
+    }
 
     #[tokio::test]
     pub async fn test_async() {

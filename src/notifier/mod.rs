@@ -1,2 +1,2 @@
 pub mod common;
-mod internal_safe;
+pub mod internal_safe;
