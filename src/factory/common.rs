@@ -1,5 +1,7 @@
+use core::arch;
 use std::{panic, thread};
 use std::process::exit;
+use std::sync::Arc;
 use log::error;
 use tokio::runtime::Runtime;
 use tokio::sync::watch;
@@ -8,8 +10,8 @@ use crate::component::zmq::component::ZeroMQComponent;
 use crate::{Component, ComponentTemplate};
 use crate::configuration::base::IndexerConfiguration;
 use crate::notifier::common::CommonNotifier;
-use crate::notifier::internal_safe::InternalSafeChannel;
 use crate::processor::common::IndexerProcessorImpl;
+use crate::storage::memory::MemoryStorageProcessor;
 
 
 pub async fn async_create_and_start_processor(origin_exit: watch::Receiver<()>, origin_cfg: IndexerConfiguration) -> (CommonNotifier, Vec<JoinHandle<()>>) {
@@ -18,9 +20,9 @@ pub async fn async_create_and_start_processor(origin_exit: watch::Receiver<()>, 
         error!("panic occurred: {:?}", panic_info);
         exit(-1);
     }));
-    // let (notify_tx, notify_rx) = crossbeam::channel::unbounded();
-    let channel =InternalSafeChannel::<Vec<u8>>::default();
-    let mut processor_wrapper = ComponentTemplate::new(IndexerProcessorImpl::new(channel.clone()));
+    let (notify_tx, notify_rx) = crossbeam::channel::unbounded();
+    let default_memory_storage = Arc::new(Box::new(MemoryStorageProcessor::default()));
+    let mut processor_wrapper = ComponentTemplate::new(IndexerProcessorImpl::new(notify_tx.clone(), default_memory_storage));
     let indexer_tx = processor_wrapper.event_tx().unwrap();
 
     let mut ret = vec![];
@@ -31,7 +33,7 @@ pub async fn async_create_and_start_processor(origin_exit: watch::Receiver<()>, 
     zmq_wrapper.init(origin_cfg.clone()).await.unwrap();
     ret.extend(zmq_wrapper.start(origin_exit.clone()).await.unwrap());
 
-    (CommonNotifier::new(channel.clone(), indexer_tx.clone()), ret)
+    (CommonNotifier::new(notify_rx.clone(), indexer_tx.clone()), ret)
 }
 
 pub fn sync_create_and_start_processor(origin_cfg: IndexerConfiguration) -> CommonNotifier {

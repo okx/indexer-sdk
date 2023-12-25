@@ -1,10 +1,14 @@
 use primitive_types::U256;
+use crate::types::delta::TransactionDelta;
 
 #[derive(Clone, Debug)]
 pub enum IndexerEvent {
     NewTxComing(Vec<u8>),
 
     GetBalance(AddressType, crossbeam::channel::Sender<BalanceType>),
+
+    UpdateDelta(TransactionDelta),
+    TxConsumed(TxIdType),
 }
 
 #[derive(Clone, Debug, Default)]

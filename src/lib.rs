@@ -1,3 +1,5 @@
+extern crate core;
+
 use std::ops::DerefMut;
 use tokio::task::JoinHandle;
 use std::time::Duration;
@@ -8,7 +10,6 @@ use tokio::sync::watch;
 use tokio::task;
 use crate::configuration::base::{IndexerConfiguration, ZMQConfiguration};
 use crate::factory::common::sync_create_and_start_processor;
-use crate::notifier::common::CommonNotifier;
 
 pub mod storage;
 pub mod error;
@@ -19,7 +20,6 @@ pub mod component;
 pub mod configuration;
 pub mod notifier;
 pub mod factory;
-mod python;
 
 
 #[derive(Clone, Debug)]
@@ -124,7 +124,7 @@ for ComponentTemplate<T, E>
 }
 
 impl<T: Component<Event=E> + Clone, E: Send + Sync + Clone + 'static> ComponentTemplate<T, E> {
-    async fn on_start(&mut self, mut exit: watch::Receiver<()>) -> IndexerResult<()> {
+    async fn on_start(&mut self, exit: watch::Receiver<()>) -> IndexerResult<()> {
         let interval = self.interval();
         let mut interval = tokio::time::interval(interval);
         let rx = self.rx.clone();

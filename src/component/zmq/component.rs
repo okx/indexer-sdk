@@ -2,7 +2,7 @@ use std::time::Duration;
 use log::{error, info};
 use tokio::sync::watch::Receiver;
 use tokio::task::JoinHandle;
-use zeromq::{Socket,  ZmqMessage};
+use zeromq::{Socket, ZmqMessage};
 use crate::Component;
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
@@ -58,7 +58,7 @@ impl ZeroMQNode {
     pub fn new(config: IndexerConfiguration, sender: async_channel::Sender<IndexerEvent>) -> Self {
         Self { config, sender }
     }
-    async fn start(&self, mut exit: Receiver<()>) -> JoinHandle<()> {
+    async fn start(&self, exit: Receiver<()>) -> JoinHandle<()> {
         let node = self.clone();
         tokio::task::spawn(async move {
             let mut socket = zeromq::SubSocket::new();
@@ -105,18 +105,18 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    pub async fn test_asd(){
+    pub async fn test_asd() {
         let config = IndexerConfiguration {
             mq: ZMQConfiguration {
                 zmq_url: "tcp://0.0.0.0:5555".to_string(),
                 zmq_topic: vec![],
             },
         };
-        let (tx,rx)=async_channel::unbounded();
-        let mut component=ZeroMQComponent::new(config,tx.clone());
+        let (tx, rx) = async_channel::unbounded();
+        let mut component = ZeroMQComponent::new(config, tx.clone());
         let (exit_tx, exit_rx) = watch::channel(());
-        let nodes=component.start(exit_rx.clone()).await.unwrap();
-        for node in nodes{
+        let nodes = component.start(exit_rx.clone()).await.unwrap();
+        for node in nodes {
             node.await.unwrap();
         }
         sleep(Duration::from_secs(10000000000));
