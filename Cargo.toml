@@ -1,0 +1,19 @@
+[package]
+name = "indexer-sdk"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-channel = "1.9.0"
+tokio = { version = "1.26.0", features = ["rt", "sync", "macros", "time"] }
+log = "0.4.17"
+log4rs = { version = "1.2.0", features = ["gzip"] }
+async-trait = "0.1.64"
+thiserror = "1.0.38"
+zeromq = "0.3.4"
+#zmq = "0.10.0"
+env_logger = "0.10.0"
+crossbeam = "0.8.2"
+primitive-types = "0.12.1"
