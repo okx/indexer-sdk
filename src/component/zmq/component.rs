@@ -79,10 +79,6 @@ impl ZeroMQNode {
                             info!("received message:{:?}",message);
                             node.handle_message(&message).await;
                         }
-                        _ = exit.changed() => {
-                            info!("receiver  exit,exit");
-                            break;
-                        }
                 }
             }
         })

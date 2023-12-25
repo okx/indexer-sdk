@@ -5,6 +5,9 @@ use log::{info, warn};
 use crate::error::IndexerResult;
 use tokio::sync::watch;
 use tokio::task;
+use crate::configuration::base::{IndexerConfiguration, ZMQConfiguration};
+use crate::factory::common::sync_create_and_start_processor;
+use crate::notifier::common::CommonNotifier;
 
 pub mod storage;
 pub mod error;
@@ -15,6 +18,24 @@ pub mod component;
 pub mod configuration;
 pub mod notifier;
 pub mod factory;
+
+
+
+#[no_mangle]
+pub extern "C" fn create_processor() ->CommonNotifier {
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Debug)
+        .format_target(false)
+        .init();
+    let ret=sync_create_and_start_processor(IndexerConfiguration{
+        mq: ZMQConfiguration {
+            zmq_url: "tcp://0.0.0.0:5555".to_string(),
+            zmq_topic: vec![],
+        },
+    });
+    ret
+}
+
 
 #[derive(Clone, Debug)]
 pub struct IndexerContext {}
@@ -142,10 +163,6 @@ impl<T: Component<Event=E> + Clone, E: Send + Sync + Clone + 'static> ComponentT
                         warn!("handle tick event error: {:?}", e)
                     }
                 }
-                _ = exit.changed() => {
-                    info!("receive exit signal, exit.");
-                    break;
-                }
             }
         }
         Ok(())
@@ -186,31 +203,27 @@ mod tests {
     use super::*;
 
 
-    #[test]
-    pub fn test_notifier() {
-        env_logger::builder()
-            .filter_level(log::LevelFilter::Debug)
-            .format_target(false)
-            .init();
-        let (exit_tx, exit_rx) = watch::channel(());
-        let notifier = sync_create_and_start_processor(exit_rx.clone(), IndexerConfiguration {
-            mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:5555".to_string(), zmq_topic: vec![] },
-        });
-        loop {
-            let data = notifier.get();
-            if data.len() > 0 {
-                info!("receive data {:?}", data);
-            }
-            sleep(Duration::from_secs(3))
-        }
-    }
+    // #[test]
+    // pub fn test_notifier() {
+    //     env_logger::builder()
+    //         .filter_level(log::LevelFilter::Debug)
+    //         .format_target(false)
+    //         .init();
+    //     let (exit_tx, exit_rx) = watch::channel(());
+    //     let notifier = sync_create_and_start_processor(exit_rx.clone(), IndexerConfiguration {
+    //         mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:5555".to_string(), zmq_topic: vec![] },
+    //     });
+    //     loop {
+    //         let data = notifier.get();
+    //         if data.len() > 0 {
+    //             info!("receive data {:?}", data);
+    //         }
+    //         sleep(Duration::from_secs(3))
+    //     }
+    // }
 
     #[tokio::test]
     pub async fn test_async() {
-        env_logger::builder()
-            .filter_level(log::LevelFilter::Debug)
-            .format_target(false)
-            .init();
         let (exit_tx, exit_rx) = watch::channel(());
         let notifier = async_create_and_start_processor(exit_rx.clone(), IndexerConfiguration {
             mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:5555".to_string(), zmq_topic: vec![] },

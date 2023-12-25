@@ -19,7 +19,7 @@ struct AddressBalance {
     token_balances: HashMap<TokenType, BalanceWrapper>, // token 对应的余额信息
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TxDeltaNode {
     pub address: AddressType,
     pub delta: Vec<(TokenType, BalanceType)>,
@@ -48,7 +48,7 @@ impl CacheComponent {
                 let bal = address_bal.token_balances.entry(token.clone()).or_insert_with(|| {
                     BalanceWrapper::default()
                 });
-                let total = bal.borrow_mut();
+                let mut total = bal.borrow_mut();
                 total.0 = total.0 + delta.0;
                 info!("add_transaction_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",address,token,delta,total);
 
@@ -79,7 +79,24 @@ impl CacheComponent {
         for node in cache {
             let address = &node.address;
             for (token, delta) in &node.delta {
-                self.decrease_address_delta(address, token, delta)
+                // self.decrease_address_delta(address, token, delta)
+                let address_bal = self.address_balances.get_mut(address);
+                if address_bal.is_none() {
+                    info!("address_bal:{:?} is none",address);
+                    return;
+                }
+                let address_bal = address_bal.unwrap();
+                let token_bal = address_bal.token_balances.get_mut(token);
+                if token_bal.is_none() {
+                    info!("token_bal:{:?} is none",token);
+                    return;
+                }
+
+                let token_bal = token_bal.unwrap();
+                let mut total = token_bal.borrow_mut();
+                total.0 = total.0 - delta.0;
+
+                info!("decrease_address_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",address,token,delta,total);
             }
         }
     }
@@ -97,7 +114,7 @@ impl CacheComponent {
         }
 
         let token_bal = token_bal.unwrap();
-        let total = token_bal.borrow_mut();
+        let mut total = token_bal.borrow_mut();
         total.0 = total.0 - delta.0;
 
         info!("decrease_address_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",address,token_type,delta,total);
@@ -113,11 +130,9 @@ pub struct CacheNode<T: Clone> {
 
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[test]
-    pub fn test_asd(){
-
-    }
+    pub fn test_asd() {}
 }

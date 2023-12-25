@@ -32,9 +32,10 @@ pub async fn async_create_and_start_processor(origin_exit: watch::Receiver<()>, 
     (CommonNotifier::new(notify_rx.clone(), indexer_tx.clone()), ret)
 }
 
-pub fn sync_create_and_start_processor(origin_exit: watch::Receiver<()>, origin_cfg: IndexerConfiguration) -> CommonNotifier {
+pub fn sync_create_and_start_processor(origin_cfg: IndexerConfiguration) -> CommonNotifier {
+    let (tx, rx) = watch::channel(());
     let rt = Runtime::new().unwrap();
-    let ret = rt.block_on(async_create_and_start_processor(origin_exit, origin_cfg));
+    let ret = rt.block_on(async_create_and_start_processor(rx, origin_cfg));
     thread::spawn(move || {
         rt.block_on(async {
             let handlers = ret.1;
