@@ -39,7 +39,7 @@ pub async fn async_create_and_start_processor(origin_exit: watch::Receiver<()>, 
     (CommonClient::new(notify_rx.clone(), indexer_tx.clone()), ret)
 }
 
-fn create_client_from_configuration(config: IndexerConfiguration) -> Client {
+fn create_client_from_configuration(config: IndexerConfiguration) -> bitcoincore_rpc::Client {
     Client::new(config.net.url.as_str(),
                 Auth::UserPass(config.net.username.clone(),
                                config.net.password.clone())).unwrap()

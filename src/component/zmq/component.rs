@@ -111,6 +111,7 @@ mod tests {
                 zmq_url: "tcp://0.0.0.0:5555".to_string(),
                 zmq_topic: vec![],
             },
+            net: Default::default(),
         };
         let (tx, rx) = async_channel::unbounded();
         let mut component = ZeroMQComponent::new(config, tx.clone());
@@ -135,6 +136,7 @@ mod tests {
                 zmq_url: "tcp://0.0.0.0:28332".to_string(),
                 zmq_topic: vec![],
             },
+            net: Default::default(),
         };
         let (tx, rx) = async_channel::unbounded();
         let node = ZeroMQNode::new(config, tx);
