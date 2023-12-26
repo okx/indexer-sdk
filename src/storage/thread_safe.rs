@@ -38,4 +38,11 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
         *write += 1;
         Ok(())
     }
+
+    async fn seen_and_store_txs(&mut self, tx_id: TxIdType) -> IndexerResult<bool> {
+        let write = self.rw_lock.write().await;
+        let ret=self.internal.seen_and_store_txs(tx_id).await?;
+        drop(write);
+        Ok(ret)
+    }
 }

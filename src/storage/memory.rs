@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use log::info;
 use crate::error::IndexerResult;
@@ -10,6 +10,7 @@ use crate::types::delta::TransactionDelta;
 
 #[derive(Clone, Debug, Default)]
 pub struct MemoryStorageProcessor {
+    seen_txs: HashSet<TxIdType>,
     address_balances: HashMap<AddressType, AddressBalance>,
 
     // avoid to iterator the address_balances
@@ -106,6 +107,15 @@ impl StorageProcessor for MemoryStorageProcessor {
             }
         }
         Ok(())
+    }
+
+
+    async fn seen_and_store_txs(&mut self, tx_id: TxIdType) -> IndexerResult<bool> {
+        if self.seen_txs.contains(&tx_id) {
+            return Ok(true);
+        }
+        self.seen_txs.insert(tx_id);
+        Ok(false)
     }
 }
 

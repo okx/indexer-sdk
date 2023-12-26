@@ -108,6 +108,7 @@ for ComponentTemplate<T, E>
     }
 
 
+
     fn event_tx(&mut self) -> IndexerResult<Sender<Self::Event>> {
         Ok(self.tx.clone())
     }
@@ -120,6 +121,10 @@ for ComponentTemplate<T, E>
         });
         ret.push(task);
         Ok(ret)
+    }
+
+    async fn handle_tick_event(&mut self) -> IndexerResult<()> {
+        self.internal.handle_tick_event().await
     }
 }
 

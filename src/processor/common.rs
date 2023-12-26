@@ -1,7 +1,7 @@
-use std::cell::RefCell;
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 use std::time::Duration;
+use bitcoincore_rpc::bitcoin::consensus::deserialize;
+use bitcoincore_rpc::bitcoin::Transaction;
 use bitcoincore_rpc::RpcApi;
 use log::{error, info};
 use crate::error::IndexerResult;
@@ -17,8 +17,6 @@ pub struct IndexerProcessorImpl<T: StorageProcessor> {
     tx: crossbeam::channel::Sender<GetDataResponse>,
     storage: T,
     btc_client: Arc<bitcoincore_rpc::Client>,
-
-    seen_txs: HashSet<String>,
 }
 
 unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
@@ -27,7 +25,7 @@ unsafe impl<T: StorageProcessor> Sync for IndexerProcessorImpl<T> {}
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     pub fn new(tx: crossbeam::channel::Sender<GetDataResponse>, storage: T, client: bitcoincore_rpc::Client) -> Self {
-        Self { tx, storage, btc_client: Arc::new(client), seen_txs: Default::default() }
+        Self { tx, storage, btc_client: Arc::new(client) }
     }
 }
 
@@ -42,7 +40,7 @@ impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
     }
 
     fn interval(&self) -> Duration {
-        Duration::from_secs(1)
+        Duration::from_secs(10)
     }
 
     async fn handle_tick_event(&mut self) -> IndexerResult<()> {
@@ -64,9 +62,6 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         for tx in txs {
             // FIXME : to_string maybe is not right
             let tx_id: TxIdType = tx.to_string();
-            if self.seen_txs.contains(&tx_id) {
-                continue;
-            }
             // TODO: notify other component to load raw tx
         }
         Ok(())
@@ -74,8 +69,8 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     async fn do_handle_event(&mut self, event: &IndexerEvent) -> IndexerResult<()> {
         info!("do_handle_event,event:{:?}",event);
         match event {
-            IndexerEvent::NewTxComing(data) => {
-                self.do_handle_new_tx_coming(data).await
+            IndexerEvent::NewTxComing(data, sequence) => {
+                self.do_handle_new_tx_coming(data).await?;
             }
             IndexerEvent::GetBalance(address, tx) => {
                 self.do_handle_get_balance(address, tx).await?;
@@ -86,23 +81,25 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             IndexerEvent::TxConsumed(tx_id) => {
                 self.do_handle_tx_consumed(tx_id).await?;
             }
+            IndexerEvent::RawBlockComing(_, _) => {}
         }
         Ok(())
     }
-    pub(crate) async fn do_handle_new_tx_coming(&mut self, data: &Vec<u8>) {
+    pub(crate) async fn do_handle_new_tx_coming(&mut self, data: &Vec<u8>) -> IndexerResult<()> {
         let data = self.parse_zmq_data(&data);
         if let Some((tx_id, data)) = data {
-            if self.seen_txs.contains(&tx_id) {
-                info!("tx_id:{} has been seen",tx_id);
-                return;
+            if self.storage.seen_and_store_txs(tx_id.clone()).await? {
+                info!("tx_id:{:?} has been seen",tx_id);
+                return Ok(());
             }
-            self.seen_txs.insert(tx_id.clone());
             self.tx.send(data).unwrap();
         }
+        Ok(())
     }
     fn parse_zmq_data(&self, data: &Vec<u8>) -> Option<(TxIdType, GetDataResponse)> {
+        let tx: Transaction = deserialize(&data).expect("Failed to deserialize transaction");
         // TODO:
-        Some(("".to_string(), GetDataResponse {
+        Some((tx.txid().to_string(), GetDataResponse {
             data_type: DataEnum::NewTx,
             data: data.clone(),
         }))
@@ -118,7 +115,6 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         Ok(())
     }
     async fn do_handle_tx_consumed(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
-        self.seen_txs.remove(tx_id);
         self.storage.remove_transaction_delta(tx_id).await?;
         Ok(())
     }

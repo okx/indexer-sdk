@@ -1,10 +1,12 @@
 use std::fmt::{Debug, Formatter};
+use bitcoincore_rpc::bitcoin::Block;
 use primitive_types::U256;
 use crate::types::delta::TransactionDelta;
 
 #[derive(Clone)]
 pub enum IndexerEvent {
-    NewTxComing(Vec<u8>),
+    NewTxComing(Vec<u8>,u32),
+    RawBlockComing(Block, u32),
 
     GetBalance(AddressType, crossbeam::channel::Sender<BalanceType>),
 
@@ -15,26 +17,20 @@ pub enum IndexerEvent {
 impl Debug for IndexerEvent{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            IndexerEvent::NewTxComing(data) => {
-                f.debug_struct("NewTxComing")
-                    .field("data", &data)
-                    .finish()
+            IndexerEvent::NewTxComing(_, _) => {
+                write!(f, "NewTxComing")
             }
-            IndexerEvent::GetBalance(address, tx) => {
-                f.debug_struct("GetBalance")
-                    .field("address", &address)
-                    .field("tx", &tx)
-                    .finish()
+            IndexerEvent::GetBalance(_, _) => {
+                write!(f, "GetBalance")
             }
-            IndexerEvent::UpdateDelta(delta) => {
-                f.debug_struct("UpdateDelta")
-                    .field("delta", &delta)
-                    .finish()
+            IndexerEvent::UpdateDelta(_) => {
+                write!(f, "UpdateDelta")
             }
-            IndexerEvent::TxConsumed(tx_id) => {
-                f.debug_struct("TxConsumed")
-                    .field("tx_id", &tx_id)
-                    .finish()
+            IndexerEvent::TxConsumed(_) => {
+                write!(f, "TxConsumed")
+            }
+            IndexerEvent::RawBlockComing(_, _) => {
+                write!(f, "RawBlockComing")
             }
         }
     }
