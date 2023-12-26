@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use bitcoincore_rpc::RpcApi;
@@ -16,6 +17,8 @@ pub struct IndexerProcessorImpl<T: StorageProcessor> {
     tx: crossbeam::channel::Sender<GetDataResponse>,
     storage: T,
     btc_client: Arc<bitcoincore_rpc::Client>,
+
+    seen_txs: HashSet<String>,
 }
 
 unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
@@ -24,7 +27,7 @@ unsafe impl<T: StorageProcessor> Sync for IndexerProcessorImpl<T> {}
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     pub fn new(tx: crossbeam::channel::Sender<GetDataResponse>, storage: T, client: bitcoincore_rpc::Client) -> Self {
-        Self { tx, storage, btc_client: Arc::new(client) }
+        Self { tx, storage, btc_client: Arc::new(client), seen_txs: Default::default() }
     }
 }
 
@@ -56,8 +59,16 @@ impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
 }
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
-    async fn do_handle_sync_mempool(&mut self)->IndexerResult<()>{
-        // let txs=self.btc_client.get_raw_mempool()?;
+    async fn do_handle_sync_mempool(&mut self) -> IndexerResult<()> {
+        let txs = self.btc_client.get_raw_mempool()?;
+        for tx in txs {
+            // FIXME : to_string maybe is not right
+            let tx_id: TxIdType = tx.to_string();
+            if self.seen_txs.contains(&tx_id) {
+                continue;
+            }
+            // TODO: notify other component to load raw tx
+        }
         Ok(())
     }
     async fn do_handle_event(&mut self, event: &IndexerEvent) -> IndexerResult<()> {
@@ -78,17 +89,23 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         }
         Ok(())
     }
-    pub(crate) async fn do_handle_new_tx_coming(&self, data: &Vec<u8>) {
+    pub(crate) async fn do_handle_new_tx_coming(&mut self, data: &Vec<u8>) {
         let data = self.parse_zmq_data(&data);
-        if let Some(data) = data {
+        if let Some((tx_id, data)) = data {
+            if self.seen_txs.contains(&tx_id) {
+                info!("tx_id:{} has been seen",tx_id);
+                return;
+            }
+            self.seen_txs.insert(tx_id.clone());
             self.tx.send(data).unwrap();
         }
     }
-    fn parse_zmq_data(&self, data: &Vec<u8>) -> Option<GetDataResponse> {
-        Some(GetDataResponse {
+    fn parse_zmq_data(&self, data: &Vec<u8>) -> Option<(TxIdType, GetDataResponse)> {
+        // TODO:
+        Some(("".to_string(), GetDataResponse {
             data_type: DataEnum::NewTx,
             data: data.clone(),
-        })
+        }))
     }
 
     pub(crate) async fn do_handle_get_balance(&self, address: &AddressType, tx: &crossbeam::channel::Sender<BalanceType>) -> IndexerResult<()> {
@@ -101,6 +118,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         Ok(())
     }
     async fn do_handle_tx_consumed(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
+        self.seen_txs.remove(tx_id);
         self.storage.remove_transaction_delta(tx_id).await?;
         Ok(())
     }
