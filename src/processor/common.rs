@@ -14,6 +14,7 @@ use crate::types::response::{DataEnum, GetDataResponse};
 pub struct IndexerProcessorImpl<T: StorageProcessor> {
     tx: crossbeam::channel::Sender<GetDataResponse>,
     storage: T,
+    btc_client: bitcoincore_rpc::Client,
 }
 
 unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
@@ -21,8 +22,8 @@ unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
 unsafe impl<T: StorageProcessor> Sync for IndexerProcessorImpl<T> {}
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
-    pub fn new(tx: crossbeam::channel::Sender<GetDataResponse>, storage: T) -> Self {
-        Self { tx, storage }
+    pub fn new(tx: crossbeam::channel::Sender<GetDataResponse>, storage: T, client: bitcoincore_rpc::Client) -> Self {
+        Self { tx, storage, btc_client: client }
     }
 }
 

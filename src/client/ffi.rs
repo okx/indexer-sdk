@@ -1,6 +1,6 @@
 use std::ops::DerefMut;
 use once_cell::sync::Lazy;
-use crate::configuration::base::{IndexerConfiguration, ZMQConfiguration};
+use crate::configuration::base::{IndexerConfiguration, NetConfiguration, ZMQConfiguration};
 use crate::factory::common::sync_create_and_start_processor;
 use crate::client::common::{CommonClient};
 
@@ -30,6 +30,7 @@ pub extern "C" fn start_processor() {
             zmq_url,
             zmq_topic: zmq_topics,
         },
+        net: NetConfiguration {},
     });
     let old = get_notifier();
     *old = ret;

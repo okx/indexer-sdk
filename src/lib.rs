@@ -186,6 +186,7 @@ mod tests {
     use crate::configuration::base::{IndexerConfiguration, ZMQConfiguration};
     use crate::factory::common::{async_create_and_start_processor, sync_create_and_start_processor};
     use super::*;
+    use bitcoincore_rpc::{bitcoin, Auth, Client, Error, RpcApi};
 
 
     #[test]
@@ -194,7 +195,6 @@ mod tests {
             .filter_level(log::LevelFilter::Debug)
             .format_target(false)
             .init();
-        // let (exit_tx, exit_rx) = watch::channel(());
         let notifier = sync_create_and_start_processor(IndexerConfiguration {
             mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:5555".to_string(), zmq_topic: vec![] },
         });
@@ -205,6 +205,18 @@ mod tests {
             }
             sleep(Duration::from_secs(3))
         }
+    }
+
+    #[tokio::test]
+    pub async fn test_get_transactions() {
+        // best block hash: [0x8a1487d5453855b4c279262f173ef64a161f37a325443421278b0680d6b46eed, 0x9308695d1fbd8b5bdf0077aff201de2291a282f44645c25c04e0c1e79f1398b9, 0xd96bdc2ee063e8907094c15b15fb4cec1179e0507fd64e8f50979d897ebb2478, 0x7c814bdf818bb972ef4e918a42ee58b1bbcba3f05ca1bc73a789e3c2deb0095f, 0xac0d0c41296fa23117408194c4b0a2caab67dd6b3b0b9589bce038cb6d96883b, 0x5dc9f57a43da08056f909759c0e074b626fa2e98c4eaeae84c572997572e6625]
+        // http://bitcoinrpc:bitcoinrpc@localhost:18443/
+        let rpc = Client::new("http://localhost:18443",
+                              Auth::UserPass("bitcoinrpc".to_string(),
+                                             "bitcoinrpc".to_string())).unwrap();
+        let hash=rpc.get_best_block_hash().unwrap();
+        let txs = rpc.get_raw_mempool().unwrap();
+        println!("block_hash: {:?},txs:{:?}", &hash,txs);
     }
 
     // #[tokio::test]

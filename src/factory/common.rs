@@ -3,6 +3,7 @@ use std::{panic, thread};
 use std::cell::RefCell;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
+use bitcoincore_rpc::{Auth, Client};
 use log::error;
 use tokio::runtime::Runtime;
 use tokio::sync::watch;
@@ -13,7 +14,6 @@ use crate::configuration::base::IndexerConfiguration;
 use crate::client::common::CommonClient;
 use crate::processor::common::IndexerProcessorImpl;
 use crate::storage::memory::MemoryStorageProcessor;
-use crate::storage::StorageProcessor;
 
 
 pub async fn async_create_and_start_processor(origin_exit: watch::Receiver<()>, origin_cfg: IndexerConfiguration) -> (CommonClient, Vec<JoinHandle<()>>) {
@@ -22,9 +22,10 @@ pub async fn async_create_and_start_processor(origin_exit: watch::Receiver<()>, 
         error!("panic occurred: {:?}", panic_info);
         exit(-1);
     }));
+    let client = create_client_from_configuration(origin_cfg.clone());
     let (notify_tx, notify_rx) = crossbeam::channel::unbounded();
     let default_memory_storage = MemoryStorageProcessor::default();
-    let mut processor_wrapper = ComponentTemplate::new(IndexerProcessorImpl::new(notify_tx.clone(), default_memory_storage));
+    let mut processor_wrapper = ComponentTemplate::new(IndexerProcessorImpl::new(notify_tx.clone(), default_memory_storage, client));
     let indexer_tx = processor_wrapper.event_tx().unwrap();
 
     let mut ret = vec![];
@@ -36,6 +37,12 @@ pub async fn async_create_and_start_processor(origin_exit: watch::Receiver<()>, 
     ret.extend(zmq_wrapper.start(origin_exit.clone()).await.unwrap());
 
     (CommonClient::new(notify_rx.clone(), indexer_tx.clone()), ret)
+}
+
+fn create_client_from_configuration(config: IndexerConfiguration) -> Client {
+    Client::new(config.net.url.as_str(),
+                Auth::UserPass(config.net.username.clone(),
+                               config.net.password.clone())).unwrap()
 }
 
 pub fn sync_create_and_start_processor(origin_cfg: IndexerConfiguration) -> CommonClient {
