@@ -1,13 +1,12 @@
-use std::ffi::{c_char, CString};
 use std::ops::DerefMut;
 use once_cell::sync::Lazy;
 use crate::configuration::base::{IndexerConfiguration, ZMQConfiguration};
 use crate::factory::common::sync_create_and_start_processor;
-use crate::notifier::common::CommonNotifier;
+use crate::notifier::common::{CommonClient};
 
-static mut NOTIFIER: Lazy<CommonNotifier> = Lazy::new(|| CommonNotifier::default());
+static mut NOTIFIER: Lazy<CommonClient> = Lazy::new(|| CommonClient::default());
 
-fn get_notifier() -> &'static mut CommonNotifier {
+fn get_notifier() -> &'static mut CommonClient {
     unsafe { NOTIFIER.deref_mut() }
 }
 

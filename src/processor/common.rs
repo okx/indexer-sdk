@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use log::{error, info};
 use crate::error::IndexerResult;
@@ -9,21 +10,24 @@ use crate::storage::{StorageProcessor};
 use crate::types::delta::TransactionDelta;
 use crate::types::response::{DataEnum, GetDataResponse};
 
-#[derive(Clone, Debug)]
-pub struct IndexerProcessorImpl {
+#[derive(Clone)]
+pub struct IndexerProcessorImpl<T: StorageProcessor> {
     tx: crossbeam::channel::Sender<GetDataResponse>,
-    storage: Arc<Box<dyn StorageProcessor>>,
+    storage: T,
 }
 
+unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
 
-impl IndexerProcessorImpl {
-    pub fn new(tx: crossbeam::channel::Sender<GetDataResponse>, storage: Arc<Box<dyn StorageProcessor>>) -> Self {
+unsafe impl<T: StorageProcessor> Sync for IndexerProcessorImpl<T> {}
+
+impl<T: StorageProcessor> IndexerProcessorImpl<T> {
+    pub fn new(tx: crossbeam::channel::Sender<GetDataResponse>, storage: T) -> Self {
         Self { tx, storage }
     }
 }
 
 #[async_trait::async_trait]
-impl Component for IndexerProcessorImpl {
+impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
     type Event = IndexerEvent;
     type Configuration = IndexerConfiguration;
     type Inner = Self;
@@ -48,8 +52,8 @@ impl Component for IndexerProcessorImpl {
     }
 }
 
-impl IndexerProcessorImpl {
-    async fn do_handle_event(&mut self, event: &Self::Event) -> IndexerResult<()> {
+impl<T: StorageProcessor> IndexerProcessorImpl<T> {
+    async fn do_handle_event(&mut self, event: &IndexerEvent) -> IndexerResult<()> {
         info!("do_handle_event,event:{:?}",event);
         match event {
             IndexerEvent::NewTxComing(data) => {
@@ -83,6 +87,7 @@ impl IndexerProcessorImpl {
     pub(crate) async fn do_handle_get_balance(&self, address: &AddressType, tx: &crossbeam::channel::Sender<BalanceType>) -> IndexerResult<()> {
         let ret = self.storage.get_balance(address).await?;
         let _ = tx.send(ret);
+        Ok(())
     }
     async fn do_handle_update_delta(&mut self, data: &TransactionDelta) -> IndexerResult<()> {
         self.storage.add_transaction_delta(data).await?;
@@ -96,4 +101,4 @@ impl IndexerProcessorImpl {
 
 
 #[async_trait::async_trait]
-impl IndexProcessor for IndexerProcessorImpl {}
+impl<T: StorageProcessor> IndexProcessor for IndexerProcessorImpl<T> {}

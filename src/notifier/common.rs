@@ -8,13 +8,13 @@ use crate::types::response::GetDataResponse;
 
 #[repr(C)]
 #[derive(Clone)]
-pub struct CommonNotifier {
+pub struct CommonClient {
     rx: Receiver<GetDataResponse>,
     tx: async_channel::Sender<IndexerEvent>,
 }
 
 
-impl Default for CommonNotifier {
+impl Default for CommonClient {
     fn default() -> Self {
         let (tx, _) = async_channel::unbounded();
         let (_, rx) = crossbeam::channel::unbounded();
@@ -23,7 +23,7 @@ impl Default for CommonNotifier {
 }
 
 #[async_trait::async_trait]
-impl Client for CommonNotifier {
+impl Client for CommonClient {
     async fn get_data(&self) -> IndexerResult<Option<GetDataResponse>> {
         self.do_get_data()
     }
@@ -45,7 +45,7 @@ impl Client for CommonNotifier {
     }
 }
 
-impl CommonNotifier {
+impl CommonClient {
     pub fn new(rx: Receiver<GetDataResponse>, tx: async_channel::Sender<IndexerEvent>) -> Self {
         Self { rx, tx }
     }

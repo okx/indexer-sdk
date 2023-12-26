@@ -26,14 +26,14 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
     }
 
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()> {
-        let write = self.rw_lock.write().await;
+        let mut write = self.rw_lock.write().await;
         self.internal.add_transaction_delta(transaction).await?;
         *write += 1;
         Ok(())
     }
 
     async fn remove_transaction_delta(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
-        let write = self.rw_lock.write().await;
+        let mut write = self.rw_lock.write().await;
         self.internal.remove_transaction_delta(tx_id).await?;
         *write += 1;
         Ok(())
