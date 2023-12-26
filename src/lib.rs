@@ -207,19 +207,19 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    pub async fn test_async() {
-        let (exit_tx, exit_rx) = watch::channel(());
-        let notifier = async_create_and_start_processor(exit_rx.clone(), IndexerConfiguration {
-            mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:5555".to_string(), zmq_topic: vec![] },
-        }).await.0;
-        println!("1");
-        loop {
-            let data = notifier.get();
-            if data.len() > 0 {
-                info!("notifier receive data:{:?}",data);
-            }
-            sleep(Duration::from_secs(3))
-        }
-    }
+    // #[tokio::test]
+    // pub async fn test_async() {
+    //     let (exit_tx, exit_rx) = watch::channel(());
+    //     let notifier = async_create_and_start_processor(exit_rx.clone(), IndexerConfiguration {
+    //         mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:5555".to_string(), zmq_topic: vec![] },
+    //     }).await.0;
+    //     println!("1");
+    //     loop {
+    //         let data = notifier.get();
+    //         if data.len() > 0 {
+    //             info!("notifier receive data:{:?}",data);
+    //         }
+    //         sleep(Duration::from_secs(3))
+    //     }
+    // }
 }
