@@ -1,3 +1,6 @@
+extern crate core;
+
+use std::ops::DerefMut;
 use tokio::task::JoinHandle;
 use std::time::Duration;
 use async_channel::Sender;
@@ -5,6 +8,8 @@ use log::{info, warn};
 use crate::error::IndexerResult;
 use tokio::sync::watch;
 use tokio::task;
+use crate::configuration::base::{IndexerConfiguration, ZMQConfiguration};
+use crate::factory::common::sync_create_and_start_processor;
 
 pub mod storage;
 pub mod error;
@@ -13,8 +18,9 @@ pub mod processor;
 pub mod types;
 pub mod component;
 pub mod configuration;
-pub mod notifier;
+pub mod client;
 pub mod factory;
+
 
 #[derive(Clone, Debug)]
 pub struct IndexerContext {}
@@ -118,7 +124,7 @@ for ComponentTemplate<T, E>
 }
 
 impl<T: Component<Event=E> + Clone, E: Send + Sync + Clone + 'static> ComponentTemplate<T, E> {
-    async fn on_start(&mut self, mut exit: watch::Receiver<()>) -> IndexerResult<()> {
+    async fn on_start(&mut self, exit: watch::Receiver<()>) -> IndexerResult<()> {
         let interval = self.interval();
         let mut interval = tokio::time::interval(interval);
         let rx = self.rx.clone();
@@ -141,10 +147,6 @@ impl<T: Component<Event=E> + Clone, E: Send + Sync + Clone + 'static> ComponentT
                     if let Err(e)=self.handle_tick_event().await{
                         warn!("handle tick event error: {:?}", e)
                     }
-                }
-                _ = exit.changed() => {
-                    info!("receive exit signal, exit.");
-                    break;
                 }
             }
         }
@@ -192,8 +194,8 @@ mod tests {
             .filter_level(log::LevelFilter::Debug)
             .format_target(false)
             .init();
-        let (exit_tx, exit_rx) = watch::channel(());
-        let notifier = sync_create_and_start_processor(exit_rx.clone(), IndexerConfiguration {
+        // let (exit_tx, exit_rx) = watch::channel(());
+        let notifier = sync_create_and_start_processor(IndexerConfiguration {
             mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:5555".to_string(), zmq_topic: vec![] },
         });
         loop {
@@ -207,10 +209,6 @@ mod tests {
 
     #[tokio::test]
     pub async fn test_async() {
-        env_logger::builder()
-            .filter_level(log::LevelFilter::Debug)
-            .format_target(false)
-            .init();
         let (exit_tx, exit_rx) = watch::channel(());
         let notifier = async_create_and_start_processor(exit_rx.clone(), IndexerConfiguration {
             mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:5555".to_string(), zmq_topic: vec![] },

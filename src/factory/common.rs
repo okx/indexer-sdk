@@ -1,5 +1,8 @@
+use core::arch;
 use std::{panic, thread};
+use std::cell::RefCell;
 use std::process::exit;
+use std::sync::{Arc, Mutex};
 use log::error;
 use tokio::runtime::Runtime;
 use tokio::sync::watch;
@@ -7,18 +10,21 @@ use tokio::task::JoinHandle;
 use crate::component::zmq::component::ZeroMQComponent;
 use crate::{Component, ComponentTemplate};
 use crate::configuration::base::IndexerConfiguration;
-use crate::notifier::common::CommonNotifier;
+use crate::client::common::CommonClient;
 use crate::processor::common::IndexerProcessorImpl;
+use crate::storage::memory::MemoryStorageProcessor;
+use crate::storage::StorageProcessor;
 
 
-pub async fn async_create_and_start_processor(origin_exit: watch::Receiver<()>, origin_cfg: IndexerConfiguration) -> (CommonNotifier, Vec<JoinHandle<()>>) {
+pub async fn async_create_and_start_processor(origin_exit: watch::Receiver<()>, origin_cfg: IndexerConfiguration) -> (CommonClient, Vec<JoinHandle<()>>) {
     panic::set_hook(Box::new(|panic_info| {
         println!("panic occurred: {:?}", panic_info);
         error!("panic occurred: {:?}", panic_info);
         exit(-1);
     }));
     let (notify_tx, notify_rx) = crossbeam::channel::unbounded();
-    let mut processor_wrapper = ComponentTemplate::new(IndexerProcessorImpl::new(notify_tx.clone()));
+    let default_memory_storage = MemoryStorageProcessor::default();
+    let mut processor_wrapper = ComponentTemplate::new(IndexerProcessorImpl::new(notify_tx.clone(), default_memory_storage));
     let indexer_tx = processor_wrapper.event_tx().unwrap();
 
     let mut ret = vec![];
@@ -29,12 +35,13 @@ pub async fn async_create_and_start_processor(origin_exit: watch::Receiver<()>, 
     zmq_wrapper.init(origin_cfg.clone()).await.unwrap();
     ret.extend(zmq_wrapper.start(origin_exit.clone()).await.unwrap());
 
-    (CommonNotifier::new(notify_rx.clone(), indexer_tx.clone()), ret)
+    (CommonClient::new(notify_rx.clone(), indexer_tx.clone()), ret)
 }
 
-pub fn sync_create_and_start_processor(origin_exit: watch::Receiver<()>, origin_cfg: IndexerConfiguration) -> CommonNotifier {
+pub fn sync_create_and_start_processor(origin_cfg: IndexerConfiguration) -> CommonClient {
+    let (tx, rx) = watch::channel(());
     let rt = Runtime::new().unwrap();
-    let ret = rt.block_on(async_create_and_start_processor(origin_exit, origin_cfg));
+    let ret = rt.block_on(async_create_and_start_processor(rx, origin_cfg));
     thread::spawn(move || {
         rt.block_on(async {
             let handlers = ret.1;
