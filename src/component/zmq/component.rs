@@ -1,4 +1,6 @@
 use std::time::Duration;
+use bitcoincore_rpc::bitcoin;
+use bitcoincore_rpc::bitcoin::p2p::message_blockdata::Inventory;
 use log::{error, info};
 use tokio::sync::watch::Receiver;
 use tokio::task::JoinHandle;
@@ -93,6 +95,7 @@ impl ZeroMQNode {
                 let bytes: Vec<u8> = v.into();
                 ret.extend(bytes)
             });
+        let inventory: Inventory = bitcoin::consensus::deserialize(&ret).unwrap();
         self.sender.send(IndexerEvent::NewTxComing(ret)).await.expect("unreachable");
     }
 }

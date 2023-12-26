@@ -11,14 +11,14 @@ const ffi = require('ffi-napi');
 const pathToLib = '/Users/lvcong/RustroverProjects/indexer-sdk/target/debug/libmylibrary.dylib';
 
 const myLib = ffi.Library(pathToLib, {
-    'start_processor': ['void']
+    'start_processor': ['void',[]]
 });
 
 // 调用函数
 async function main() {
     console.log(1)
     myLib.start_processor();
-    await sleep(1500)
+    await sleep(1000000)
     console.log(2)
 }
 

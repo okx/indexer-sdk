@@ -196,7 +196,7 @@ mod tests {
             .format_target(false)
             .init();
         let notifier = sync_create_and_start_processor(IndexerConfiguration {
-            mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:5555".to_string(), zmq_topic: vec![] },
+            mq: ZMQConfiguration { zmq_url: "tcp://0.0.0.0:28332".to_string(), zmq_topic: vec!["".to_string()] },
             net: Default::default(),
         });
         loop {
