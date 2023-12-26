@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use bitcoincore_rpc::RpcApi;
 use log::{error, info};
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
@@ -42,6 +43,7 @@ impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
     }
 
     async fn handle_tick_event(&mut self) -> IndexerResult<()> {
+        self.do_handle_sync_mempool().await?;
         Ok(())
     }
 
@@ -54,6 +56,10 @@ impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
 }
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
+    async fn do_handle_sync_mempool(&mut self)->IndexerResult<()>{
+        let txs=self.btc_client.get_raw_mempool()?;
+        Ok(())
+    }
     async fn do_handle_event(&mut self, event: &IndexerEvent) -> IndexerResult<()> {
         info!("do_handle_event,event:{:?}",event);
         match event {

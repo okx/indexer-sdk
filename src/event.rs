@@ -48,6 +48,7 @@ pub type TokenType = Vec<u8>;
 
 pub type TxIdType = String;
 
+
 #[derive(Clone)]
 pub struct BalanceDelta {}
 

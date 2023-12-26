@@ -30,7 +30,7 @@ pub extern "C" fn start_processor() {
             zmq_url,
             zmq_topic: zmq_topics,
         },
-        net: NetConfiguration {},
+        net: NetConfiguration::default(),
     });
     let old = get_notifier();
     *old = ret;
