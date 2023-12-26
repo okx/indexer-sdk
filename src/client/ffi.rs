@@ -1,4 +1,5 @@
 use std::ops::DerefMut;
+use log::info;
 use once_cell::sync::Lazy;
 use crate::configuration::base::{IndexerConfiguration, NetConfiguration, ZMQConfiguration};
 use crate::factory::common::sync_create_and_start_processor;
@@ -20,6 +21,7 @@ pub struct ByteArray {
 pub extern "C" fn start_processor() {
     let zmq_url = std::env::var("ZMQ_URL").unwrap();
     let zmq_topics = std::env::var("ZMQ_TOPIC").unwrap();
+    info!("zmq_url: {}, zmq_topics: {}", zmq_url, zmq_topics);
     let zmq_topics: Vec<String> = zmq_topics.split(",").map(|v| v.to_string()).collect();
     env_logger::builder()
         .filter_level(log::LevelFilter::Debug)
