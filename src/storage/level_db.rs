@@ -27,4 +27,8 @@
 //     async fn seen_and_store_txs(&mut self, tx_id: TxIdType) -> IndexerResult<()> {
 //         todo!()
 //     }
+//
+//     async fn seen_tx(&self, tx_id: TxIdType) -> IndexerResult<bool> {
+//         todo!()
+//     }
 // }

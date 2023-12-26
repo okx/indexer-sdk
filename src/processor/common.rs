@@ -91,7 +91,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     ) -> IndexerResult<()> {
         let txs = {
             // sort by timestamp to execute tx in order
-            let mut txs = self.btc_client.get_raw_mempool_verbose()?;
+            let txs = self.btc_client.get_raw_mempool_verbose()?;
             let mut sorted_pairs: Vec<_> = txs.into_iter().collect();
             sorted_pairs.sort_by(|a, b| a.1.time.cmp(&b.1.time));
             sorted_pairs

@@ -59,13 +59,13 @@ impl StorageProcessor for MemoryStorageProcessor {
                     .entry(token.clone())
                     .or_insert_with(|| BalanceWrapper::default());
                 let mut total = bal.borrow_mut();
-                total.0 = total.0 + delta.0;
+                total.0 = total.0.clone() + delta.0.clone();
                 info!(
                     "add_transaction_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",
                     address, token, delta, total
                 );
 
-                let node = (token.clone(), BalanceType(delta.0));
+                let node = (token.clone(), BalanceType(delta.0.clone()));
                 let trace_data = nodes.entry(address.clone()).or_insert_with(|| TxDeltaNode {
                     address: address.clone(),
                     delta: vec![],
@@ -104,7 +104,7 @@ impl StorageProcessor for MemoryStorageProcessor {
 
                 let token_bal = token_bal.unwrap();
                 let mut total = token_bal.borrow_mut();
-                total.0 = total.0 - delta.0;
+                total.0 = total.0.clone() - delta.0.clone();
 
                 info!(
                     "decrease_address_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",
@@ -149,7 +149,7 @@ impl MemoryStorageProcessor {
 
         let token_bal = token_bal.unwrap();
         let mut total = token_bal.borrow_mut();
-        total.0 = total.0 - delta.0;
+        total.0 = total.0.clone() - delta.0.clone();
 
         info!(
             "decrease_address_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",
