@@ -1,5 +1,2 @@
-
 #[derive(Clone)]
-pub enum  ZeroMQEvent{
-
-}
+pub enum ZeroMQEvent {}

@@ -5,10 +5,9 @@ use crate::types::response::GetDataResponse;
 
 pub mod common;
 
-pub mod ffi;
-pub mod event;
 mod concurrent_client;
-
+pub mod event;
+pub mod ffi;
 
 #[async_trait::async_trait]
 pub trait Client: Send + Sync {

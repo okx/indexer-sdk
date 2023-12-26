@@ -6,12 +6,11 @@ pub struct IndexerConfiguration {
     pub net: NetConfiguration,
 }
 
-impl IndexerConfiguration{
-    pub async fn test_asd(&self){
+impl IndexerConfiguration {
+    pub async fn test_asd(&self) {
         info!("asd");
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub struct NetConfiguration {

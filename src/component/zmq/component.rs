@@ -1,21 +1,21 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
-use std::thread::sleep;
-use std::time::Duration;
-use bitcoincore_rpc::{bitcoin, RpcApi};
-use bitcoincore_rpc::bitcoin::{Block, Transaction};
-use bitcoincore_rpc::bitcoin::consensus::{Decodable, deserialize};
-use bitcoincore_rpc::bitcoin::p2p::message_blockdata::Inventory;
-use log::{error, info, warn};
-use may::go;
-use tokio::sync::watch::Receiver;
-use tokio::task::JoinHandle;
-use zeromq::{Socket, ZmqMessage};
-use crate::{Component, HookComponent};
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
 use crate::event::IndexerEvent;
+use crate::{Component, HookComponent};
+use bitcoincore_rpc::bitcoin::consensus::{deserialize, Decodable};
+use bitcoincore_rpc::bitcoin::p2p::message_blockdata::Inventory;
+use bitcoincore_rpc::bitcoin::{Block, Transaction};
+use bitcoincore_rpc::{bitcoin, RpcApi};
+use log::{error, info, warn};
+use may::go;
+use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
+use std::sync::Arc;
+use std::thread::sleep;
+use std::time::Duration;
+use tokio::sync::watch::Receiver;
+use tokio::task::JoinHandle;
 use zeromq::SocketRecv;
+use zeromq::{Socket, ZmqMessage};
 
 #[derive(Clone)]
 pub struct ZeroMQComponent {
@@ -23,7 +23,6 @@ pub struct ZeroMQComponent {
     sender: async_channel::Sender<IndexerEvent>,
     flag: Arc<AtomicBool>,
 }
-
 
 #[async_trait::async_trait]
 impl HookComponent for ZeroMQComponent {}
@@ -50,19 +49,24 @@ impl Component for ZeroMQComponent {
     async fn start(&mut self, exit: Receiver<()>) -> IndexerResult<Vec<JoinHandle<()>>> {
         let mut ret = vec![];
         let node = ZeroMQNode::new(self.config.clone(), self.sender.clone(), self.flag.clone());
-        ret.push(
-            node.start(exit.clone()).await
-        );
+        ret.push(node.start(exit.clone()).await);
         Ok(ret)
     }
 }
 
 impl ZeroMQComponent {
-    pub fn new(config: IndexerConfiguration, sender: async_channel::Sender<IndexerEvent>, flag:Arc<AtomicBool>) -> Self {
-        Self { config, sender, flag }
+    pub fn new(
+        config: IndexerConfiguration,
+        sender: async_channel::Sender<IndexerEvent>,
+        flag: Arc<AtomicBool>,
+    ) -> Self {
+        Self {
+            config,
+            sender,
+            flag,
+        }
     }
 }
-
 
 #[derive(Clone)]
 struct ZeroMQNode {
@@ -72,12 +76,20 @@ struct ZeroMQNode {
 }
 
 impl ZeroMQNode {
-    pub fn new(config: IndexerConfiguration, sender: async_channel::Sender<IndexerEvent>, flag: Arc<AtomicBool>) -> Self {
-        Self { config, sender, flag }
+    pub fn new(
+        config: IndexerConfiguration,
+        sender: async_channel::Sender<IndexerEvent>,
+        flag: Arc<AtomicBool>,
+    ) -> Self {
+        Self {
+            config,
+            sender,
+            flag,
+        }
     }
     async fn start(&self, exit: Receiver<()>) -> JoinHandle<()> {
         let node = self.clone();
-        let flag=self.flag.clone();
+        let flag = self.flag.clone();
         tokio::task::spawn(async move {
             let mut socket = zeromq::SubSocket::new();
             socket
@@ -129,33 +141,51 @@ impl ZeroMQNode {
         let topic = String::from_utf8_lossy(&topic[..]).to_string();
         let event = if topic == "rawtx" {
             let raw_tx_data = body.to_vec();
-            let transaction: Transaction = deserialize(&raw_tx_data).expect("Failed to deserialize transaction");
-            let sequence_number = u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
+            let transaction: Transaction =
+                deserialize(&raw_tx_data).expect("Failed to deserialize transaction");
+            let sequence_number =
+                u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
             let event = IndexerEvent::NewTxComing(raw_tx_data, sequence_number);
-            info!("receive new raw tx,tx_id:{},sequence:{}",transaction.txid(),sequence_number);
+            info!(
+                "receive new raw tx,tx_id:{},sequence:{}",
+                transaction.txid(),
+                sequence_number
+            );
             Some(event)
         } else if topic == "hashblock" {
             let block_hash = hex::encode(&body.to_vec());
-            let sequence_number = u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
-            info!("receive new block hash:{},sequence:{}",block_hash,sequence_number);
+            let sequence_number =
+                u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
+            info!(
+                "receive new block hash:{},sequence:{}",
+                block_hash, sequence_number
+            );
             None
         } else if topic == "hashtx" {
             let tx_hash = hex::encode(&body.to_vec());
-            let sequence_number = u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
-            info!("receive new tx hash:{},sequence:{}",tx_hash,sequence_number);
+            let sequence_number =
+                u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
+            info!(
+                "receive new tx hash:{},sequence:{}",
+                tx_hash, sequence_number
+            );
             None
         } else if topic == "rawblock" {
             let raw_block_data = body.to_vec();
             let block: Block = bitcoin::consensus::deserialize(&raw_block_data).unwrap();
-            let sequence_number = u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
+            let sequence_number =
+                u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
             Some(IndexerEvent::RawBlockComing(block, sequence_number))
         } else if topic == "sequence" {
             let hash = hex::encode(&body[..32]);
             let label = body[32] as char;
-            info!("receive sequence topic:{:?},tx_hash:{},label:{}",topic,hash,label);
+            info!(
+                "receive sequence topic:{:?},tx_hash:{},label:{}",
+                topic, hash, label
+            );
             None
         } else {
-            warn!("receive unknown topic:{:?}",topic);
+            warn!("receive unknown topic:{:?}", topic);
             None
         };
         if let Some(event) = event {
@@ -166,11 +196,11 @@ impl ZeroMQNode {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::configuration::base::ZMQConfiguration;
     use core::arch;
     use std::thread::sleep;
     use tokio::sync::watch;
-    use crate::configuration::base::ZMQConfiguration;
-    use super::*;
 
     #[tokio::test]
     pub async fn test_asd() {
@@ -182,7 +212,8 @@ mod tests {
             net: Default::default(),
         };
         let (tx, rx) = async_channel::unbounded();
-        let mut component = ZeroMQComponent::new(config, tx.clone(), Arc::new(AtomicBool::new(true)));
+        let mut component =
+            ZeroMQComponent::new(config, tx.clone(), Arc::new(AtomicBool::new(true)));
         let (exit_tx, exit_rx) = watch::channel(());
         let nodes = component.start(exit_rx.clone()).await.unwrap();
         for node in nodes {

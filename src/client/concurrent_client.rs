@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use crate::client::Client;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TxIdType};
-use crate::client::Client;
-use crate::storage::StorageProcessor;
 use crate::storage::thread_safe::ThreadSafeStorageProcessor;
+use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
 use crate::types::response::GetDataResponse;
+use std::sync::Arc;
 
 pub struct ConcurrentClient<T: Client> {
     internal: T,
@@ -13,7 +13,10 @@ pub struct ConcurrentClient<T: Client> {
 }
 
 impl<T: Client> ConcurrentClient<T> {
-    pub fn new(internal: T, storage: ThreadSafeStorageProcessor<Box<dyn StorageProcessor>>) -> Self {
+    pub fn new(
+        internal: T,
+        storage: ThreadSafeStorageProcessor<Box<dyn StorageProcessor>>,
+    ) -> Self {
         Self { internal, storage }
     }
 }

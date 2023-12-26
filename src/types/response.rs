@@ -16,7 +16,6 @@ impl DataEnum {
 #[derive(Clone, Debug)]
 pub struct TxResult {}
 
-
 #[derive(Clone, Debug)]
 pub struct GetDataResponse {
     pub data_type: DataEnum,

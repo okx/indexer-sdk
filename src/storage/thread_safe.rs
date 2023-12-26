@@ -1,9 +1,9 @@
-use log::debug;
-use tokio::sync::RwLock;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TxIdType};
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
+use log::debug;
+use tokio::sync::RwLock;
 
 pub struct ThreadSafeStorageProcessor<T: StorageProcessor> {
     internal: T,
@@ -12,7 +12,10 @@ pub struct ThreadSafeStorageProcessor<T: StorageProcessor> {
 
 impl<T: StorageProcessor> ThreadSafeStorageProcessor<T> {
     pub fn new(internal: T) -> Self {
-        Self { internal, rw_lock: Default::default() }
+        Self {
+            internal,
+            rw_lock: Default::default(),
+        }
     }
 }
 
@@ -21,7 +24,7 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
     async fn get_balance(&self, address: &AddressType) -> IndexerResult<BalanceType> {
         let count = self.rw_lock.read().await;
         let ret = self.internal.get_balance(address).await?;
-        debug!("write count:{:?}",count);
+        debug!("write count:{:?}", count);
         Ok(ret)
     }
 
@@ -41,14 +44,14 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
 
     async fn seen_and_store_txs(&mut self, tx_id: TxIdType) -> IndexerResult<bool> {
         let write = self.rw_lock.write().await;
-        let ret=self.internal.seen_and_store_txs(tx_id).await?;
+        let ret = self.internal.seen_and_store_txs(tx_id).await?;
         drop(write);
         Ok(ret)
     }
 
     async fn seen_tx(&self, tx_id: TxIdType) -> IndexerResult<bool> {
         let count = self.rw_lock.read().await;
-        let ret=self.internal.seen_tx(tx_id).await?;
+        let ret = self.internal.seen_tx(tx_id).await?;
         drop(count);
         Ok(ret)
     }

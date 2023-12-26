@@ -1,12 +1,11 @@
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
-use log::info;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
-
+use log::info;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 #[derive(Clone, Debug, Default)]
 pub struct MemoryStorageProcessor {
@@ -34,7 +33,6 @@ pub struct TxDeltaNode {
 
 type BalanceWrapper = Rc<RefCell<BalanceType>>;
 
-
 #[async_trait::async_trait]
 impl StorageProcessor for MemoryStorageProcessor {
     async fn get_balance(&self, address: &AddressType) -> IndexerResult<BalanceType> {
@@ -42,36 +40,40 @@ impl StorageProcessor for MemoryStorageProcessor {
     }
 
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()> {
-        info!("tx_id:{:?} is finished,add_transaction_delta:{:?}",&transaction.tx_id,transaction);
+        info!(
+            "tx_id:{:?} is finished,add_transaction_delta:{:?}",
+            &transaction.tx_id, transaction
+        );
         if transaction.deltas.is_empty() {
             return Ok(());
         }
         let mut nodes = HashMap::new();
         for (address, delta) in &transaction.deltas {
-            let address_bal = self.address_balances.entry(address.clone()).or_insert_with(|| {
-                AddressBalance::default()
-            });
+            let address_bal = self
+                .address_balances
+                .entry(address.clone())
+                .or_insert_with(|| AddressBalance::default());
             for (token, delta) in delta {
-                let bal = address_bal.token_balances.entry(token.clone()).or_insert_with(|| {
-                    BalanceWrapper::default()
-                });
+                let bal = address_bal
+                    .token_balances
+                    .entry(token.clone())
+                    .or_insert_with(|| BalanceWrapper::default());
                 let mut total = bal.borrow_mut();
                 total.0 = total.0 + delta.0;
-                info!("add_transaction_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",address,token,delta,total);
+                info!(
+                    "add_transaction_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",
+                    address, token, delta, total
+                );
 
                 let node = (token.clone(), BalanceType(delta.0));
-                let trace_data = nodes.entry(address.clone()).or_insert_with(|| {
-                    TxDeltaNode {
-                        address: address.clone(),
-                        delta: vec![],
-                    }
+                let trace_data = nodes.entry(address.clone()).or_insert_with(|| TxDeltaNode {
+                    address: address.clone(),
+                    delta: vec![],
                 });
                 trace_data.delta.push(node);
             }
         }
-        let nodes = nodes.values().into_iter().map(|v| {
-            v.clone()
-        }).collect();
+        let nodes = nodes.values().into_iter().map(|v| v.clone()).collect();
         self.tx_delta_cache.insert(transaction.tx_id.clone(), nodes);
         Ok(())
     }
@@ -80,7 +82,7 @@ impl StorageProcessor for MemoryStorageProcessor {
     async fn remove_transaction_delta(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
         let cache = self.tx_delta_cache.get(tx_id);
         if cache.is_none() {
-            info!("tx_delta_cache:{:?} is none",tx_id);
+            info!("tx_delta_cache:{:?} is none", tx_id);
             return Ok(());
         }
         let cache = cache.unwrap();
@@ -90,13 +92,13 @@ impl StorageProcessor for MemoryStorageProcessor {
                 // self.decrease_address_delta(address, token, delta)
                 let address_bal = self.address_balances.get_mut(address);
                 if address_bal.is_none() {
-                    info!("address_bal:{:?} is none",address);
+                    info!("address_bal:{:?} is none", address);
                     return Ok(());
                 }
                 let address_bal = address_bal.unwrap();
                 let token_bal = address_bal.token_balances.get_mut(token);
                 if token_bal.is_none() {
-                    info!("token_bal:{:?} is none",token);
+                    info!("token_bal:{:?} is none", token);
                     return Ok(());
                 }
 
@@ -104,12 +106,14 @@ impl StorageProcessor for MemoryStorageProcessor {
                 let mut total = token_bal.borrow_mut();
                 total.0 = total.0 - delta.0;
 
-                info!("decrease_address_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",address,token,delta,total);
+                info!(
+                    "decrease_address_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",
+                    address, token, delta, total
+                );
             }
         }
         Ok(())
     }
-
 
     async fn seen_and_store_txs(&mut self, tx_id: TxIdType) -> IndexerResult<bool> {
         if self.seen_txs.contains(&tx_id) {
@@ -125,16 +129,21 @@ impl StorageProcessor for MemoryStorageProcessor {
 }
 
 impl MemoryStorageProcessor {
-    fn decrease_address_delta(&mut self, address: &AddressType, token_type: &TokenType, delta: &BalanceType) {
+    fn decrease_address_delta(
+        &mut self,
+        address: &AddressType,
+        token_type: &TokenType,
+        delta: &BalanceType,
+    ) {
         let address_bal = self.address_balances.get_mut(address);
         if address_bal.is_none() {
-            info!("address_bal:{:?} is none",address);
+            info!("address_bal:{:?} is none", address);
             return;
         }
         let address_bal = address_bal.unwrap();
         let token_bal = address_bal.token_balances.get_mut(token_type);
         if token_bal.is_none() {
-            info!("token_bal:{:?} is none",token_type);
+            info!("token_bal:{:?} is none", token_type);
             return;
         }
 
@@ -142,7 +151,10 @@ impl MemoryStorageProcessor {
         let mut total = token_bal.borrow_mut();
         total.0 = total.0 - delta.0;
 
-        info!("decrease_address_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",address,token_type,delta,total);
+        info!(
+            "decrease_address_delta,address:{:?},token:{:?},delta:{:?},total:{:?}",
+            address, token_type, delta, total
+        );
     }
 }
 
@@ -151,7 +163,6 @@ pub struct CacheNode<T: Clone> {
     pub index: u32,
     pub cache_value: T,
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -1,10 +1,10 @@
-use crossbeam::channel::{Receiver, TryRecvError};
-use log::info;
+use crate::client::Client;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
-use crate::client::Client;
 use crate::types::delta::TransactionDelta;
 use crate::types::response::GetDataResponse;
+use crossbeam::channel::{Receiver, TryRecvError};
+use log::info;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -12,7 +12,6 @@ pub struct CommonClient {
     rx: Receiver<GetDataResponse>,
     tx: async_channel::Sender<IndexerEvent>,
 }
-
 
 impl Default for CommonClient {
     fn default() -> Self {
@@ -51,17 +50,23 @@ impl CommonClient {
     }
 
     fn do_tx_consumed(&mut self, tx_id: TxIdType) -> IndexerResult<()> {
-        self.tx.send_blocking(IndexerEvent::TxConsumed(tx_id)).unwrap();
+        self.tx
+            .send_blocking(IndexerEvent::TxConsumed(tx_id))
+            .unwrap();
         Ok(())
     }
     fn do_get_balance(&self, address: AddressType) -> IndexerResult<BalanceType> {
         let (tx, rx) = crossbeam::channel::bounded(1);
-        self.tx.send_blocking(IndexerEvent::GetBalance(address, tx)).unwrap();
+        self.tx
+            .send_blocking(IndexerEvent::GetBalance(address, tx))
+            .unwrap();
         let ret = rx.recv().unwrap();
         Ok(ret)
     }
     fn do_update_delta(&self, delta: TransactionDelta) -> IndexerResult<()> {
-        self.tx.send_blocking(IndexerEvent::UpdateDelta(delta)).unwrap();
+        self.tx
+            .send_blocking(IndexerEvent::UpdateDelta(delta))
+            .unwrap();
         Ok(())
     }
     fn do_get_data(&self) -> IndexerResult<Option<GetDataResponse>> {

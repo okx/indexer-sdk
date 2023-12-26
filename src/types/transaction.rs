@@ -1,7 +1,2 @@
-
-
-#[derive(Clone,Debug)]
-pub struct BitCoinTransaction{
-
-}
-
+#[derive(Clone, Debug)]
+pub struct BitCoinTransaction {}

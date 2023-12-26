@@ -1,7 +1,7 @@
-use std::fmt::{Debug, Formatter};
+use crate::types::delta::TransactionDelta;
 use bitcoincore_rpc::bitcoin::Block;
 use primitive_types::U256;
-use crate::types::delta::TransactionDelta;
+use std::fmt::{Debug, Formatter};
 
 #[derive(Clone)]
 pub enum IndexerEvent {
@@ -49,10 +49,8 @@ pub type TokenType = Vec<u8>;
 
 pub type TxIdType = String;
 
-
 #[derive(Clone)]
 pub struct BalanceDelta {}
-
 
 #[derive(Clone)]
 pub struct TxResultInfo {

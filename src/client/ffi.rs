@@ -1,9 +1,9 @@
-use std::ops::DerefMut;
-use log::info;
-use once_cell::sync::Lazy;
+use crate::client::common::CommonClient;
 use crate::configuration::base::{IndexerConfiguration, NetConfiguration, ZMQConfiguration};
 use crate::factory::common::sync_create_and_start_processor;
-use crate::client::common::{CommonClient};
+use log::info;
+use once_cell::sync::Lazy;
+use std::ops::DerefMut;
 
 static mut NOTIFIER: Lazy<CommonClient> = Lazy::new(|| CommonClient::default());
 
@@ -44,6 +44,8 @@ pub extern "C" fn get_data() -> ByteArray {
     let binding = notifier.get();
     let ptr = binding.as_ptr();
     std::mem::forget(ptr);
-    ByteArray { data: ptr, length: binding.len() }
+    ByteArray {
+        data: ptr,
+        length: binding.len(),
+    }
 }
-

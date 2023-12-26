@@ -1,18 +1,18 @@
-use std::sync::{Arc};
-use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
-use std::thread::sleep;
-use std::time::Duration;
+use crate::configuration::base::IndexerConfiguration;
+use crate::error::IndexerResult;
+use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
+use crate::storage::StorageProcessor;
+use crate::types::delta::TransactionDelta;
+use crate::types::response::{DataEnum, GetDataResponse};
+use crate::{Component, HookComponent, IndexProcessor};
 use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
 use bitcoincore_rpc::bitcoin::{Transaction, Txid};
 use bitcoincore_rpc::RpcApi;
 use log::{error, info};
-use crate::error::IndexerResult;
-use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
-use crate::{Component, HookComponent, IndexProcessor};
-use crate::configuration::base::IndexerConfiguration;
-use crate::storage::{StorageProcessor};
-use crate::types::delta::TransactionDelta;
-use crate::types::response::{DataEnum, GetDataResponse};
+use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
+use std::sync::Arc;
+use std::thread::sleep;
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct IndexerProcessorImpl<T: StorageProcessor> {
@@ -28,14 +28,27 @@ unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
 unsafe impl<T: StorageProcessor> Sync for IndexerProcessorImpl<T> {}
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
-    pub fn new(tx: crossbeam::channel::Sender<GetDataResponse>, storage: T, client: bitcoincore_rpc::Client, flag: Arc<AtomicBool>) -> Self {
-        Self { tx, storage, btc_client: Arc::new(client), flag }
+    pub fn new(
+        tx: crossbeam::channel::Sender<GetDataResponse>,
+        storage: T,
+        client: bitcoincore_rpc::Client,
+        flag: Arc<AtomicBool>,
+    ) -> Self {
+        Self {
+            tx,
+            storage,
+            btc_client: Arc::new(client),
+            flag,
+        }
     }
 }
 
 #[async_trait::async_trait]
 impl<T: StorageProcessor> HookComponent for IndexerProcessorImpl<T> {
-    async fn before_start(&mut self, sender: async_channel::Sender<IndexerEvent>) -> IndexerResult<()> {
+    async fn before_start(
+        &mut self,
+        sender: async_channel::Sender<IndexerEvent>,
+    ) -> IndexerResult<()> {
         self.restore_from_mempool(sender).await?;
         Ok(())
     }
@@ -57,20 +70,25 @@ impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
 
     async fn handle_event(&mut self, event: &Self::Event) -> IndexerResult<()> {
         if let Err(e) = self.do_handle_event(event).await {
-            error!("handle_event error:{:?}",e)
+            error!("handle_event error:{:?}", e)
         }
         Ok(())
     }
 }
 
-
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
-    async fn restore_from_mempool(&mut self, sender: async_channel::Sender<IndexerEvent>) -> IndexerResult<()> {
+    async fn restore_from_mempool(
+        &mut self,
+        sender: async_channel::Sender<IndexerEvent>,
+    ) -> IndexerResult<()> {
         self.do_handle_sync_mempool(sender).await?;
         Ok(())
     }
 
-    async fn do_handle_sync_mempool(&mut self, tx: async_channel::Sender<IndexerEvent>) -> IndexerResult<()> {
+    async fn do_handle_sync_mempool(
+        &mut self,
+        tx: async_channel::Sender<IndexerEvent>,
+    ) -> IndexerResult<()> {
         let txs = {
             // sort by timestamp to execute tx in order
             let mut txs = self.btc_client.get_raw_mempool_verbose()?;
@@ -81,19 +99,21 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
 
         for (tx_id, _) in txs {
             let tx_id = hex::encode(&tx_id[..]);
-            info!("get tx from mempool:{:?}",tx_id);
+            info!("get tx from mempool:{:?}", tx_id);
             if self.storage.seen_tx(tx_id.clone()).await? {
-                info!("do_handle_sync_mempool tx_id:{:?} has been seen",&tx_id);
+                info!("do_handle_sync_mempool tx_id:{:?} has been seen", &tx_id);
                 return Ok(());
             }
-            tx.send(IndexerEvent::NewTxComingByTxId(tx_id)).await.unwrap();
+            tx.send(IndexerEvent::NewTxComingByTxId(tx_id))
+                .await
+                .unwrap();
         }
         self.flag.store(true, Ordering::Relaxed);
 
         Ok(())
     }
     async fn do_handle_event(&mut self, event: &IndexerEvent) -> IndexerResult<()> {
-        info!("do_handle_event,event:{:?}",event);
+        info!("do_handle_event,event:{:?}", event);
         match event {
             IndexerEvent::NewTxComing(data, sequence) => {
                 self.do_handle_new_tx_coming(data).await?;
@@ -118,23 +138,30 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         let data = self.parse_zmq_data(&data);
         if let Some((tx_id, data)) = data {
             if self.storage.seen_and_store_txs(tx_id.clone()).await? {
-                info!("tx_id:{:?} has been seen",tx_id);
+                info!("tx_id:{:?} has been seen", tx_id);
                 return Ok(());
             }
-            info!("tx_id:{:?} has not been seen,start to execute",tx_id);
+            info!("tx_id:{:?} has not been seen,start to execute", tx_id);
             self.tx.send(data).unwrap();
         }
         Ok(())
     }
     fn parse_zmq_data(&self, data: &Vec<u8>) -> Option<(TxIdType, GetDataResponse)> {
         let tx: Transaction = deserialize(&data).expect("Failed to deserialize transaction");
-        Some((tx.txid().to_string(), GetDataResponse {
-            data_type: DataEnum::NewTx,
-            data: data.clone(),
-        }))
+        Some((
+            tx.txid().to_string(),
+            GetDataResponse {
+                data_type: DataEnum::NewTx,
+                data: data.clone(),
+            },
+        ))
     }
 
-    pub(crate) async fn do_handle_get_balance(&self, address: &AddressType, tx: &crossbeam::channel::Sender<BalanceType>) -> IndexerResult<()> {
+    pub(crate) async fn do_handle_get_balance(
+        &self,
+        address: &AddressType,
+        tx: &crossbeam::channel::Sender<BalanceType>,
+    ) -> IndexerResult<()> {
         let ret = self.storage.get_balance(address).await?;
         let _ = tx.send(ret);
         Ok(())
@@ -157,7 +184,6 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         Ok(())
     }
 }
-
 
 #[async_trait::async_trait]
 impl<T: StorageProcessor> IndexProcessor for IndexerProcessorImpl<T> {}
