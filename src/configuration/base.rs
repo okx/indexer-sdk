@@ -1,7 +1,15 @@
+use log::info;
+
 #[derive(Clone, Debug)]
 pub struct IndexerConfiguration {
     pub mq: ZMQConfiguration,
     pub net: NetConfiguration,
+}
+
+impl IndexerConfiguration{
+    pub async fn test_asd(&self){
+        info!("asd");
+    }
 }
 
 

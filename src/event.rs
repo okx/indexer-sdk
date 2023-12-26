@@ -5,7 +5,9 @@ use crate::types::delta::TransactionDelta;
 
 #[derive(Clone)]
 pub enum IndexerEvent {
-    NewTxComing(Vec<u8>,u32),
+    NewTxComing(Vec<u8>, u32),
+    NewTxComingByTxId(TxIdType),
+
     RawBlockComing(Block, u32),
 
     GetBalance(AddressType, crossbeam::channel::Sender<BalanceType>),
@@ -14,7 +16,7 @@ pub enum IndexerEvent {
     TxConsumed(TxIdType),
 }
 
-impl Debug for IndexerEvent{
+impl Debug for IndexerEvent {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             IndexerEvent::NewTxComing(_, _) => {
@@ -31,6 +33,9 @@ impl Debug for IndexerEvent{
             }
             IndexerEvent::RawBlockComing(_, _) => {
                 write!(f, "RawBlockComing")
+            }
+            IndexerEvent::NewTxComingByTxId(_) => {
+                write!(f, "NewTxComingByTxId")
             }
         }
     }

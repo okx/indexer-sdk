@@ -1,5 +1,3 @@
-extern crate core;
-
 use std::ops::DerefMut;
 use tokio::task::JoinHandle;
 use std::time::Duration;
@@ -65,14 +63,14 @@ pub trait Component: Send + Sync {
 
 
 #[derive(Clone)]
-pub struct ComponentTemplate<T: Component<Event=E> + Clone + 'static, E: Send + Sync + Clone> {
+pub struct ComponentTemplate<T: HookComponent<Event=E> + Clone + 'static, E: Send + Sync + Clone> {
     internal: T,
     rx: async_channel::Receiver<E>,
     tx: Sender<E>,
     _marker: std::marker::PhantomData<E>,
 }
 
-impl<T: Component<Event=E> + Clone, E: Send + Sync + Clone> ComponentTemplate<T, E> {
+impl<T: HookComponent<Event=E> + Clone, E: Send + Sync + Clone> ComponentTemplate<T, E> {
     pub fn new(internal: T) -> Self {
         let (tx, rx) = async_channel::unbounded();
         Self {
@@ -86,7 +84,7 @@ impl<T: Component<Event=E> + Clone, E: Send + Sync + Clone> ComponentTemplate<T,
 
 
 #[async_trait::async_trait]
-impl<T: Component<Event=E> + Clone + 'static, E: Send + Sync + Clone + 'static> Component
+impl<T: HookComponent<Event=E> + Clone + 'static, E: Send + Sync + Clone + 'static> Component
 for ComponentTemplate<T, E>
 {
     type Event = E;
@@ -128,8 +126,18 @@ for ComponentTemplate<T, E>
     }
 }
 
-impl<T: Component<Event=E> + Clone, E: Send + Sync + Clone + 'static> ComponentTemplate<T, E> {
+#[async_trait::async_trait]
+pub trait HookComponent:Component{
+    async fn before_start(&mut self, sender: Sender<Self::Event>) ->IndexerResult<()>{
+        Ok(())
+    }
+}
+
+
+impl<T: HookComponent<Event=E> + Clone, E: Send + Sync + Clone + 'static> ComponentTemplate<T, E> {
     async fn on_start(&mut self, exit: watch::Receiver<()>) -> IndexerResult<()> {
+        let tx=self.event_tx().unwrap();
+        self.internal.before_start(tx).await?;
         let interval = self.interval();
         let mut interval = tokio::time::interval(interval);
         let rx = self.rx.clone();

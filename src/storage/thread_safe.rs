@@ -45,4 +45,11 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
         drop(write);
         Ok(ret)
     }
+
+    async fn seen_tx(&self, tx_id: TxIdType) -> IndexerResult<bool> {
+        let count = self.rw_lock.read().await;
+        let ret=self.internal.seen_tx(tx_id).await?;
+        drop(count);
+        Ok(ret)
+    }
 }

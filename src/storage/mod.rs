@@ -12,6 +12,7 @@ pub trait StorageProcessor: Send + Sync {
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()>;
     async fn remove_transaction_delta(&mut self, tx_id: &TxIdType) -> IndexerResult<()>;
     async fn seen_and_store_txs(&mut self,tx_id:TxIdType)->IndexerResult<bool>;
+    async fn seen_tx(&self,tx_id:TxIdType)->IndexerResult<bool>;
 }
 
 
@@ -32,5 +33,9 @@ impl StorageProcessor for Box<dyn StorageProcessor>{
 
     async fn seen_and_store_txs(&mut self, tx_id: TxIdType) -> IndexerResult<bool> {
         self.as_mut().seen_and_store_txs(tx_id).await
+    }
+
+    async fn seen_tx(&self, tx_id: TxIdType) -> IndexerResult<bool> {
+        self.as_ref().seen_tx(tx_id).await
     }
 }

@@ -1,12 +1,14 @@
 use std::sync::{Arc};
+use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
+use std::thread::sleep;
 use std::time::Duration;
-use bitcoincore_rpc::bitcoin::consensus::deserialize;
-use bitcoincore_rpc::bitcoin::Transaction;
+use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
+use bitcoincore_rpc::bitcoin::{Transaction, Txid};
 use bitcoincore_rpc::RpcApi;
 use log::{error, info};
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
-use crate::{Component, IndexProcessor};
+use crate::{Component, HookComponent, IndexProcessor};
 use crate::configuration::base::IndexerConfiguration;
 use crate::storage::{StorageProcessor};
 use crate::types::delta::TransactionDelta;
@@ -17,6 +19,8 @@ pub struct IndexerProcessorImpl<T: StorageProcessor> {
     tx: crossbeam::channel::Sender<GetDataResponse>,
     storage: T,
     btc_client: Arc<bitcoincore_rpc::Client>,
+
+    flag: Arc<AtomicBool>,
 }
 
 unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
@@ -24,8 +28,16 @@ unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
 unsafe impl<T: StorageProcessor> Sync for IndexerProcessorImpl<T> {}
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
-    pub fn new(tx: crossbeam::channel::Sender<GetDataResponse>, storage: T, client: bitcoincore_rpc::Client) -> Self {
-        Self { tx, storage, btc_client: Arc::new(client) }
+    pub fn new(tx: crossbeam::channel::Sender<GetDataResponse>, storage: T, client: bitcoincore_rpc::Client, flag: Arc<AtomicBool>) -> Self {
+        Self { tx, storage, btc_client: Arc::new(client), flag }
+    }
+}
+
+#[async_trait::async_trait]
+impl<T: StorageProcessor> HookComponent for IndexerProcessorImpl<T> {
+    async fn before_start(&mut self, sender: async_channel::Sender<IndexerEvent>) -> IndexerResult<()> {
+        self.restore_from_mempool(sender).await?;
+        Ok(())
     }
 }
 
@@ -43,11 +55,6 @@ impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
         Duration::from_secs(300)
     }
 
-    async fn handle_tick_event(&mut self) -> IndexerResult<()> {
-        self.do_handle_sync_mempool().await?;
-        Ok(())
-    }
-
     async fn handle_event(&mut self, event: &Self::Event) -> IndexerResult<()> {
         if let Err(e) = self.do_handle_event(event).await {
             error!("handle_event error:{:?}",e)
@@ -56,20 +63,33 @@ impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
     }
 }
 
+
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
-    async fn do_handle_sync_mempool(&mut self) -> IndexerResult<()> {
-        let txs={
-            // sort by timestamp
+    async fn restore_from_mempool(&mut self, sender: async_channel::Sender<IndexerEvent>) -> IndexerResult<()> {
+        self.do_handle_sync_mempool(sender).await?;
+        Ok(())
+    }
+
+    async fn do_handle_sync_mempool(&mut self, tx: async_channel::Sender<IndexerEvent>) -> IndexerResult<()> {
+        let txs = {
+            // sort by timestamp to execute tx in order
             let mut txs = self.btc_client.get_raw_mempool_verbose()?;
             let mut sorted_pairs: Vec<_> = txs.into_iter().collect();
             sorted_pairs.sort_by(|a, b| a.1.time.cmp(&b.1.time));
             sorted_pairs
         };
 
-        for (tx_id,info) in txs {
-            // TODO: notify other component to load raw tx
+        for (tx_id, _) in txs {
+            let tx_id = hex::encode(&tx_id[..]);
             info!("get tx from mempool:{:?}",tx_id);
+            if self.storage.seen_tx(tx_id.clone()).await? {
+                info!("do_handle_sync_mempool tx_id:{:?} has been seen",&tx_id);
+                return Ok(());
+            }
+            tx.send(IndexerEvent::NewTxComingByTxId(tx_id)).await.unwrap();
         }
+        self.flag.store(true, Ordering::Relaxed);
+
         Ok(())
     }
     async fn do_handle_event(&mut self, event: &IndexerEvent) -> IndexerResult<()> {
@@ -88,6 +108,9 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 self.do_handle_tx_consumed(tx_id).await?;
             }
             IndexerEvent::RawBlockComing(_, _) => {}
+            IndexerEvent::NewTxComingByTxId(tx_id) => {
+                self.do_handle_new_tx_coming_by_tx_id(tx_id).await?;
+            }
         }
         Ok(())
     }
@@ -122,6 +145,15 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     }
     async fn do_handle_tx_consumed(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
         self.storage.remove_transaction_delta(tx_id).await?;
+        Ok(())
+    }
+    async fn do_handle_new_tx_coming_by_tx_id(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
+        let mut bytes = hex::decode(tx_id)?;
+        let txid: Txid = deserialize(&mut &bytes[..])?;
+        let transaction = self.btc_client.get_raw_transaction(&txid, None)?;
+        let data = serialize(&transaction);
+        self.do_handle_new_tx_coming(&data).await?;
+
         Ok(())
     }
 }

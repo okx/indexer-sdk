@@ -118,6 +118,10 @@ impl StorageProcessor for MemoryStorageProcessor {
         self.seen_txs.insert(tx_id);
         Ok(false)
     }
+
+    async fn seen_tx(&self, tx_id: TxIdType) -> IndexerResult<bool> {
+        Ok(self.seen_txs.contains(&tx_id))
+    }
 }
 
 impl MemoryStorageProcessor {
