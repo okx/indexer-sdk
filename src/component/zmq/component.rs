@@ -31,7 +31,7 @@ impl Component for ZeroMQComponent {
     }
 
     fn interval(&self) -> Duration {
-        Duration::from_secs(1)
+        Duration::from_secs(300)
     }
 
     async fn init(&mut self, cfg: Self::Configuration) -> IndexerResult<()> {
@@ -73,7 +73,7 @@ impl ZeroMQNode {
             // for topic in &node.config.mq.zmq_topic {
             //     socket.subscribe(topic).await.unwrap();
             // }
-            socket.subscribe("rawtx").await.unwrap();
+            socket.subscribe("sequence").await.unwrap();
             loop {
                 tokio::select! {
                         event=socket.recv()=>{

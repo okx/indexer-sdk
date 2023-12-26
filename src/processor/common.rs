@@ -40,7 +40,7 @@ impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
     }
 
     fn interval(&self) -> Duration {
-        Duration::from_secs(10)
+        Duration::from_secs(300)
     }
 
     async fn handle_tick_event(&mut self) -> IndexerResult<()> {
@@ -58,11 +58,17 @@ impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     async fn do_handle_sync_mempool(&mut self) -> IndexerResult<()> {
-        let txs = self.btc_client.get_raw_mempool()?;
-        for tx in txs {
-            // FIXME : to_string maybe is not right
-            let tx_id: TxIdType = tx.to_string();
+        let txs={
+            // sort by timestamp
+            let mut txs = self.btc_client.get_raw_mempool_verbose()?;
+            let mut sorted_pairs: Vec<_> = txs.into_iter().collect();
+            sorted_pairs.sort_by(|a, b| a.1.time.cmp(&b.1.time));
+            sorted_pairs
+        };
+
+        for (tx_id,info) in txs {
             // TODO: notify other component to load raw tx
+            info!("get tx from mempool:{:?}",tx_id);
         }
         Ok(())
     }
@@ -92,13 +98,13 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 info!("tx_id:{:?} has been seen",tx_id);
                 return Ok(());
             }
+            info!("tx_id:{:?} has not been seen,start to execute",tx_id);
             self.tx.send(data).unwrap();
         }
         Ok(())
     }
     fn parse_zmq_data(&self, data: &Vec<u8>) -> Option<(TxIdType, GetDataResponse)> {
         let tx: Transaction = deserialize(&data).expect("Failed to deserialize transaction");
-        // TODO:
         Some((tx.txid().to_string(), GetDataResponse {
             data_type: DataEnum::NewTx,
             data: data.clone(),

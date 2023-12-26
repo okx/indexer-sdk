@@ -42,6 +42,7 @@ impl StorageProcessor for MemoryStorageProcessor {
     }
 
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()> {
+        info!("tx_id:{:?} is finished,add_transaction_delta:{:?}",&transaction.tx_id,transaction);
         if transaction.deltas.is_empty() {
             return Ok(());
         }
