@@ -10,7 +10,7 @@ use tokio::task::JoinHandle;
 use crate::component::zmq::component::ZeroMQComponent;
 use crate::{Component, ComponentTemplate};
 use crate::configuration::base::IndexerConfiguration;
-use crate::notifier::common::CommonClient;
+use crate::client::common::CommonClient;
 use crate::processor::common::IndexerProcessorImpl;
 use crate::storage::memory::MemoryStorageProcessor;
 use crate::storage::StorageProcessor;

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TxIdType};
-use crate::notifier::Client;
+use crate::client::Client;
 use crate::storage::StorageProcessor;
 use crate::storage::thread_safe::ThreadSafeStorageProcessor;
 use crate::types::delta::TransactionDelta;

@@ -6,7 +6,7 @@ use crate::types::response::GetDataResponse;
 pub mod common;
 pub mod internal_safe;
 
-pub mod python;
+pub mod ffi;
 mod http;
 pub mod event;
 mod concurrent_client;

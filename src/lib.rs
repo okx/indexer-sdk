@@ -18,7 +18,7 @@ pub mod processor;
 pub mod types;
 pub mod component;
 pub mod configuration;
-pub mod notifier;
+pub mod client;
 pub mod factory;
 
 

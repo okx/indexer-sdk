@@ -2,7 +2,7 @@ use std::ops::DerefMut;
 use once_cell::sync::Lazy;
 use crate::configuration::base::{IndexerConfiguration, ZMQConfiguration};
 use crate::factory::common::sync_create_and_start_processor;
-use crate::notifier::common::{CommonClient};
+use crate::client::common::{CommonClient};
 
 static mut NOTIFIER: Lazy<CommonClient> = Lazy::new(|| CommonClient::default());
 

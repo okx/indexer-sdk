@@ -2,7 +2,7 @@ use crossbeam::channel::{Receiver, TryRecvError};
 use log::info;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
-use crate::notifier::Client;
+use crate::client::Client;
 use crate::types::delta::TransactionDelta;
 use crate::types::response::GetDataResponse;
 
