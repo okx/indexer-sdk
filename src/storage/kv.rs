@@ -108,7 +108,7 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         Ok(ret.is_some())
     }
 
-    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<Vec<TxIdType>> {
+    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<Vec<(TxIdType, i64)>> {
         let now = Local::now().timestamp();
         let iter = self.db.iter_all(
             KeyPrefix::SeenTx.get_prefix(),
@@ -125,9 +125,9 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
                 Some(ts)
             },
         )?;
-        let txs: Vec<TxIdType> = iter
+        let txs: Vec<(TxIdType, i64)> = iter
             .into_iter()
-            .map(|(k, _)| KeyPrefix::get_tx_id_from_seen_key(k.as_slice()))
+            .map(|(k, ts)| (KeyPrefix::get_tx_id_from_seen_key(k.as_slice()), ts))
             .collect();
         Ok(txs)
     }

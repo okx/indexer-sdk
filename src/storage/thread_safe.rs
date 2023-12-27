@@ -68,7 +68,7 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
         Ok(ret)
     }
 
-    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<Vec<TxIdType>> {
+    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<Vec<(TxIdType, i64)>> {
         let read = self.rw_lock.write().await;
         let ret = self.internal.get_all_un_consumed_txs().await;
         drop(read);

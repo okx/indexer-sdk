@@ -95,13 +95,26 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         let txs = {
             // sort by timestamp to execute tx in order
             let txs = self.btc_client.get_raw_mempool_verbose()?;
-            let mut sorted_pairs: Vec<_> = txs.into_iter().collect();
-            sorted_pairs.sort_by(|a, b| a.1.time.cmp(&b.1.time));
+            let mut append = vec![];
+            for (k, ts) in &all_unconsumed {
+                let tx_id: Txid = k.clone().into();
+                if !txs.contains_key(&tx_id) {
+                    append.push((k.clone(), *ts));
+                }
+            }
+            let mut sorted_pairs: Vec<_> = txs
+                .into_iter()
+                .map(|(tx_id, info)| {
+                    let tx_id: TxIdType = tx_id.into();
+                    (tx_id, info.time as i64)
+                })
+                .collect();
+            sorted_pairs.extend_from_slice(append.as_slice());
+            sorted_pairs.sort_by(|a, b| a.1.cmp(&b.1));
             sorted_pairs
         };
 
         for (tx_id, _) in txs {
-            let tx_id: TxIdType = tx_id.into();
             info!("get tx from mempool:{:?}", &tx_id);
             if self.storage.seen_tx(tx_id.clone()).await? {
                 info!("do_handle_sync_mempool tx_id:{:?} has been seen", &tx_id);

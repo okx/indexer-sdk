@@ -27,7 +27,7 @@ pub trait StorageProcessor: Send + Sync {
     async fn seen_and_store_txs(&mut self, tx: Transaction) -> IndexerResult<bool>;
     async fn seen_tx(&mut self, tx_id: TxIdType) -> IndexerResult<bool>;
 
-    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<Vec<TxIdType>>;
+    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<Vec<(TxIdType, i64)>>;
 }
 
 #[async_trait::async_trait]
@@ -60,7 +60,7 @@ impl StorageProcessor for Box<dyn StorageProcessor> {
         self.as_mut().seen_tx(tx_id).await
     }
 
-    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<Vec<TxIdType>> {
+    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<Vec<(TxIdType, i64)>> {
         self.as_mut().get_all_un_consumed_txs().await
     }
 }
