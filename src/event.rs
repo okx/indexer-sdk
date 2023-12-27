@@ -1,6 +1,6 @@
 use crate::types::delta::TransactionDelta;
 use bitcoincore_rpc::bitcoin::{Block, Txid};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
 
@@ -14,6 +14,7 @@ pub enum IndexerEvent {
     GetBalance(AddressType, crossbeam::channel::Sender<BalanceType>),
 
     UpdateDelta(TransactionDelta),
+
     TxConsumed(TxIdType),
 }
 
@@ -45,9 +46,54 @@ impl Debug for IndexerEvent {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, Hash, PartialEq)]
 pub struct BalanceType(pub bigdecimal::BigDecimal);
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, Hash, PartialEq)]
+impl From<i32> for BalanceType {
+    fn from(value: i32) -> Self {
+        BalanceType(bigdecimal::BigDecimal::from(value))
+    }
+}
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct AddressType(pub Vec<u8>);
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, Hash, PartialEq)]
+
+// TODO
+impl Serialize for AddressType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let data = hex::encode(&self.0);
+        String::serialize(&data, serializer)
+    }
+}
+impl<'de> Deserialize<'de> for AddressType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let encoded: String = Deserialize::deserialize(deserializer)?;
+        Ok(AddressType(hex::decode(encoded).unwrap()))
+    }
+}
+
+impl Serialize for TokenType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let data = hex::encode(&self.0);
+        String::serialize(&data, serializer)
+    }
+}
+impl<'de> Deserialize<'de> for TokenType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let encoded: String = Deserialize::deserialize(deserializer)?;
+        Ok(TokenType(hex::decode(encoded).unwrap()))
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct TokenType(pub Vec<u8>);
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, Hash, PartialEq)]
@@ -57,10 +103,16 @@ impl AddressType {
     pub fn to_bytes(&self) -> Vec<u8> {
         self.0.clone()
     }
+    pub fn from_bytes(data: &[u8]) -> Self {
+        Self(data.to_vec())
+    }
 }
 impl TokenType {
     pub fn to_bytes(&self) -> Vec<u8> {
         self.0.clone()
+    }
+    pub fn from_bytes(data: &[u8]) -> Self {
+        Self(data.to_vec())
     }
 }
 impl TxIdType {
@@ -81,13 +133,8 @@ impl Into<Txid> for TxIdType {
         Txid::from_str(&self.0).unwrap()
     }
 }
-#[derive(Clone)]
-pub struct BalanceDelta {}
 
 #[derive(Clone)]
 pub struct TxResultInfo {
     pub tx_hash: String,
 }
-// 需要维护的信息
-// 1. 通过address 查询某个token的所有asset 余额
-// 2. 通过address 查询全部的token 对应的余额

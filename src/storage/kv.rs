@@ -232,7 +232,7 @@ impl<T: DB + Send + Sync + Clone> KVStorageProcessor<T> {
         let ret = self
             .db
             .get(key)?
-            .map_or(1, |v| u32::from_le_bytes(v.as_slice().try_into().unwrap()));
+            .map_or(0, |v| u32::from_le_bytes(v.as_slice().try_into().unwrap()));
         Ok(ret)
     }
 }
@@ -248,18 +248,87 @@ mod tests {
         let db = MemoryDB::default();
         let mut storage = KVStorageProcessor::new(db);
 
-        // let address = AddressType::from_bytes(&[0u8; 20]);
-        // let tx_id = [0u8; 32];
-        // let mut delta = HashMap::default();
-        // let delta = TransactionDelta {
-        //     tx_id: TxIdType::from_bytes(&tx_id),
-        //     deltas: Default::default(),
-        // };
-        // storage.add_transaction_delta()
+        let tx_id = [0u8; 32];
+        let mut delta = HashMap::default();
+
+        let address = AddressType::from_bytes(&[0u8; 20]);
+        {
+            let mut deltas = vec![];
+            deltas.push((TokenType::from_bytes(&[0u8; 20]), BalanceType::from(1)));
+            deltas.push((TokenType::from_bytes(&[1u8; 20]), BalanceType::from(2)));
+            delta.insert(address.clone(), deltas);
+        }
+        let delta = TransactionDelta {
+            tx_id: TxIdType::from_bytes(&tx_id),
+            deltas: delta,
+        };
+        storage.add_transaction_delta(&delta).await.unwrap();
+
+        let bal = storage
+            .get_balance(&address, &TokenType::from_bytes(&[0u8; 20]))
+            .await
+            .unwrap();
+        println!("{:?}", bal);
+        assert_eq!(bal, BalanceType::from(1i32))
     }
     #[tokio::test]
-    pub async fn test_update_state() {
+    pub async fn test_revert() {
         let db = MemoryDB::default();
         let mut storage = KVStorageProcessor::new(db);
+
+        let tx_id = [0u8; 32];
+        let mut delta = HashMap::default();
+
+        let address = AddressType::from_bytes(&[0u8; 20]);
+        {
+            let mut deltas = vec![];
+            deltas.push((TokenType::from_bytes(&[0u8; 20]), BalanceType::from(1)));
+            deltas.push((TokenType::from_bytes(&[1u8; 20]), BalanceType::from(2)));
+            delta.insert(address.clone(), deltas);
+        }
+        let delta = TransactionDelta {
+            tx_id: TxIdType::from_bytes(&tx_id),
+            deltas: delta,
+        };
+        storage.add_transaction_delta(&delta).await.unwrap();
+
+        let bal = storage
+            .get_balance(&address, &TokenType::from_bytes(&[0u8; 20]))
+            .await
+            .unwrap();
+        println!("{:?}", bal);
+        assert_eq!(bal, BalanceType::from(1i32));
+
+        let tx_id = [1u8; 32];
+        let mut delta = HashMap::default();
+        {
+            let mut deltas = vec![];
+            deltas.push((TokenType::from_bytes(&[0u8; 20]), BalanceType::from(10)));
+            deltas.push((TokenType::from_bytes(&[1u8; 20]), BalanceType::from(20)));
+            delta.insert(address.clone(), deltas);
+        }
+        let delta = TransactionDelta {
+            tx_id: TxIdType::from_bytes(&tx_id),
+            deltas: delta,
+        };
+        storage.add_transaction_delta(&delta).await.unwrap();
+
+        let bal = storage
+            .get_balance(&address, &TokenType::from_bytes(&[0u8; 20]))
+            .await
+            .unwrap();
+        println!("{:?}", bal);
+        assert_eq!(bal, BalanceType::from(11i32));
+
+        storage
+            .remove_transaction_delta(&TxIdType::from_bytes(&tx_id))
+            .await
+            .unwrap();
+        let bal = storage
+            .get_balance(&address, &TokenType::from_bytes(&[0u8; 20]))
+            .await
+            .unwrap();
+        println!("{:?}", bal);
+        assert_eq!(bal, BalanceType::from(1i32));
     }
 }
