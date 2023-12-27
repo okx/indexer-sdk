@@ -80,7 +80,7 @@ impl StorageProcessor for KVStorageProcessor {
         self.wrap_transaction_delta(&mut batch, next_state, transaction);
         self.wrap_update_state(&mut batch, next_state);
         // build user utxo
-        self.wrap_address_utxo(&mut batch, transaction);
+        self.wrap_address_utxo(&mut batch, transaction)?;
 
         self.db.write_batch(batch, true)?;
         Ok(())
@@ -126,7 +126,7 @@ impl KVStorageProcessor {
         let key = KeyPrefix::TransactionDelta.build_prefix(&index.to_le_bytes());
         batch.put(key.as_slice(), value.as_slice());
 
-        let tx_id_decode = hex::decode(&data.tx_id).unwrap();
+        let tx_id_decode = data.tx_id.to_bytes();
         let key = KeyPrefix::TransactionIndexMap.build_prefix(&tx_id_decode);
         let value = index.to_le_bytes().to_vec();
         batch.put(key.as_slice(), value.as_slice());

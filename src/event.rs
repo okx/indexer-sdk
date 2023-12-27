@@ -1,7 +1,8 @@
 use crate::types::delta::TransactionDelta;
-use bitcoincore_rpc::bitcoin::Block;
+use bitcoincore_rpc::bitcoin::{Block, Txid};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
+use std::str::FromStr;
 
 #[derive(Clone)]
 pub enum IndexerEvent {
@@ -47,8 +48,24 @@ pub struct BalanceType(pub bigdecimal::BigDecimal);
 pub type AddressType = Vec<u8>;
 pub type TokenType = Vec<u8>;
 
-pub type TxIdType = String;
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, Hash, PartialEq)]
+pub struct TxIdType(pub String);
 
+impl TxIdType {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        hex::decode(&self.0).unwrap()
+    }
+}
+impl From<Txid> for TxIdType {
+    fn from(value: Txid) -> Self {
+        Self(hex::encode(&value))
+    }
+}
+impl Into<Txid> for TxIdType {
+    fn into(self) -> Txid {
+        Txid::from_str(&self.0).unwrap()
+    }
+}
 #[derive(Clone)]
 pub struct BalanceDelta {}
 

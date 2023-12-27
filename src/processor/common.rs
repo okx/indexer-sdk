@@ -98,8 +98,8 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         };
 
         for (tx_id, _) in txs {
-            let tx_id = hex::encode(&tx_id[..]);
-            info!("get tx from mempool:{:?}", tx_id);
+            let tx_id: TxIdType = tx_id.into();
+            info!("get tx from mempool:{:?}", &tx_id);
             if self.storage.seen_tx(tx_id.clone()).await? {
                 info!("do_handle_sync_mempool tx_id:{:?} has been seen", &tx_id);
                 return Ok(());
@@ -149,7 +149,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     fn parse_zmq_data(&self, data: &Vec<u8>) -> Option<(TxIdType, GetDataResponse)> {
         let tx: Transaction = deserialize(&data).expect("Failed to deserialize transaction");
         Some((
-            tx.txid().to_string(),
+            tx.txid().into(),
             GetDataResponse {
                 data_type: DataEnum::NewTx,
                 data: data.clone(),
@@ -174,8 +174,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         Ok(())
     }
     async fn do_handle_new_tx_coming_by_tx_id(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
-        let mut bytes = hex::decode(tx_id)?;
-        let txid: Txid = deserialize(&mut &bytes[..])?;
+        let txid: Txid = tx_id.clone().into();
         let transaction = self.btc_client.get_raw_transaction(&txid, None)?;
         let data = serialize(&transaction);
         self.do_handle_new_tx_coming(&data).await?;
