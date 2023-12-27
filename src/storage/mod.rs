@@ -1,11 +1,12 @@
 pub mod db;
 pub mod kv;
 pub mod memory;
-mod prefix;
+pub mod prefix;
 pub mod thread_safe;
 
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
+use crate::storage::prefix::DeltaStatus;
 use crate::types::delta::TransactionDelta;
 use bitcoincore_rpc::bitcoin::Transaction;
 
@@ -17,7 +18,12 @@ pub trait StorageProcessor: Send + Sync {
         token_type: &TokenType,
     ) -> IndexerResult<BalanceType>;
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()>;
-    async fn remove_transaction_delta(&mut self, tx_id: &TxIdType) -> IndexerResult<()>;
+    async fn remove_transaction_delta(
+        &mut self,
+        tx_id: &TxIdType,
+        status: DeltaStatus,
+    ) -> IndexerResult<()>;
+
     async fn seen_and_store_txs(&mut self, tx: Transaction) -> IndexerResult<bool>;
     async fn seen_tx(&mut self, tx_id: TxIdType) -> IndexerResult<bool>;
 
@@ -38,8 +44,12 @@ impl StorageProcessor for Box<dyn StorageProcessor> {
         self.as_mut().add_transaction_delta(transaction).await
     }
 
-    async fn remove_transaction_delta(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
-        self.as_mut().remove_transaction_delta(tx_id).await
+    async fn remove_transaction_delta(
+        &mut self,
+        tx_id: &TxIdType,
+        status: DeltaStatus,
+    ) -> IndexerResult<()> {
+        self.as_mut().remove_transaction_delta(tx_id, status).await
     }
 
     async fn seen_and_store_txs(&mut self, tx: Transaction) -> IndexerResult<bool> {

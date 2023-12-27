@@ -8,20 +8,26 @@ pub enum KeyPrefix {
     SeenTx,              // tx_id -> timestamp
 }
 pub enum DeltaStatus {
-    Active,
-    Inactive,
+    Default,
+    Executed,
+    Confirmed,
+    InActive,
 }
 impl DeltaStatus {
     pub fn to_u8(&self) -> u8 {
         match self {
-            DeltaStatus::Active => 0,
-            DeltaStatus::Inactive => 1,
+            DeltaStatus::Default => 0,
+            DeltaStatus::Executed => 1,
+            DeltaStatus::Confirmed => 2,
+            DeltaStatus::InActive => 3,
         }
     }
     pub fn from_u8(v: u8) -> Self {
         match v {
-            0 => DeltaStatus::Active,
-            1 => DeltaStatus::Inactive,
+            0 => DeltaStatus::Default,
+            1 => DeltaStatus::Executed,
+            2 => DeltaStatus::Confirmed,
+            3 => DeltaStatus::InActive,
             _ => panic!("invalid delta status"),
         }
     }
@@ -74,5 +80,19 @@ impl KeyPrefix {
         let suffix = Self::SeenTx.get_suffix(key);
         let tx_id = TxIdType::from_bytes(suffix.try_into().unwrap());
         tx_id
+    }
+}
+
+#[derive(Clone)]
+pub enum SeenStatus {
+    UnExecuted,
+    Executed,
+}
+impl SeenStatus {
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            SeenStatus::UnExecuted => 0,
+            SeenStatus::Executed => 1,
+        }
     }
 }

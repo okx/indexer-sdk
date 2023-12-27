@@ -1,5 +1,6 @@
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
+use crate::storage::prefix::DeltaStatus;
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
 use bitcoincore_rpc::bitcoin::Transaction;
@@ -40,9 +41,15 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
         Ok(())
     }
 
-    async fn remove_transaction_delta(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
+    async fn remove_transaction_delta(
+        &mut self,
+        tx_id: &TxIdType,
+        status: DeltaStatus,
+    ) -> IndexerResult<()> {
         let mut write = self.rw_lock.write().await;
-        self.internal.remove_transaction_delta(tx_id).await?;
+        self.internal
+            .remove_transaction_delta(tx_id, status)
+            .await?;
         *write += 1;
         Ok(())
     }

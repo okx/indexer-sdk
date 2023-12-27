@@ -1,7 +1,7 @@
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
 use crate::storage::db::DB;
-use crate::storage::prefix::{DeltaStatus, KeyPrefix};
+use crate::storage::prefix::{DeltaStatus, KeyPrefix, SeenStatus};
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
 use bitcoincore_rpc::bitcoin::Transaction;
@@ -52,31 +52,35 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
             "tx_id:{:?},add transaction delta, next state: {:?},delta:{:?}",
             transaction.tx_id, next_state, transaction
         );
-        self.wrap_transaction_delta(&mut batch, DeltaStatus::Active, next_state, transaction);
+        self.wrap_transaction_delta(&mut batch, DeltaStatus::Executed, next_state, transaction);
         self.wrap_update_state(&mut batch, next_state);
         // build user utxo
         self.wrap_address_utxo(&mut batch, transaction, true)?;
-        self.rm_seen_record(&mut batch, &transaction.tx_id);
 
         self.db.write_batch(batch, true)?;
         Ok(())
     }
 
-    async fn remove_transaction_delta(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
+    async fn remove_transaction_delta(
+        &mut self,
+        tx_id: &TxIdType,
+        status: DeltaStatus,
+    ) -> IndexerResult<()> {
         let delta = self.get_transaction_delta_by_tx_id(tx_id)?;
         if delta.is_none() {
             info!("tx_id,delta:{:?} not found", tx_id);
             return Ok(());
         }
         let (delta, index) = delta.unwrap();
-        if delta.status == DeltaStatus::Inactive.to_u8() {
+        if delta.status != DeltaStatus::Default.to_u8() {
             info!("tx_id,delta:{:?} is inactive,already consumed", tx_id);
             return Ok(());
         }
 
         let mut batch = WriteBatch::new();
-        self.wrap_transaction_delta(&mut batch, DeltaStatus::Inactive, index, &delta.data);
+        self.wrap_transaction_delta(&mut batch, status, index, &delta.data);
         self.wrap_address_utxo(&mut batch, &delta.data, false)?;
+        self.rm_seen_tx(&mut batch, tx_id);
 
         self.db.write_batch(batch, true)?;
         Ok(())
@@ -91,6 +95,8 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         let key = KeyPrefix::build_seen_tx_key(&tx_id);
         let dt = Local::now();
         let ts = dt.timestamp();
+        let mut data = ts.to_le_bytes().to_vec();
+        data.extend_from_slice(SeenStatus::UnExecuted.to_u8().to_le_bytes().as_slice());
         info!("tx_id:{:?} is not seen,store it", tx_id);
         self.db.set(key.as_slice(), ts.to_le_bytes().as_slice())?;
         return Ok(false);
@@ -108,7 +114,11 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
             KeyPrefix::SeenTx.get_prefix(),
             |k| k,
             |v| {
-                let ts = i64::from_le_bytes(v.as_slice().try_into().unwrap());
+                let last = v[v.len() - 1];
+                if last == SeenStatus::Executed.to_u8() {
+                    return None;
+                }
+                let ts = i64::from_le_bytes(v[..8].try_into().unwrap());
                 if now - ts > MAX_DELAY {
                     return None;
                 }
@@ -162,6 +172,10 @@ impl<T: DB + Send + Sync + Clone> KVStorageProcessor<T> {
         let value = value.unwrap();
         let wrapper: TransactionDeltaWrapper = serde_json::from_slice(value.as_slice()).unwrap();
         Ok(Some(wrapper))
+    }
+    fn rm_seen_tx(&self, batch: &mut WriteBatch, tx_id: &TxIdType) {
+        let key = KeyPrefix::build_seen_tx_key(tx_id);
+        batch.delete(key.as_slice());
     }
     fn wrap_transaction_delta(
         &self,
@@ -321,7 +335,7 @@ mod tests {
         assert_eq!(bal, BalanceType::from(11i32));
 
         storage
-            .remove_transaction_delta(&TxIdType::from_bytes(&tx_id))
+            .remove_transaction_delta(&TxIdType::from_bytes(&tx_id), DeltaStatus::Confirmed)
             .await
             .unwrap();
         let bal = storage

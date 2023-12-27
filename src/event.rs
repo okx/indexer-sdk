@@ -1,4 +1,5 @@
 use crate::types::delta::TransactionDelta;
+use bitcoincore_rpc::bitcoin::hashes::Hash;
 use bitcoincore_rpc::bitcoin::{Block, Txid};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::{Debug, Formatter};
@@ -9,13 +10,14 @@ pub enum IndexerEvent {
     NewTxComing(Vec<u8>, u32),
     NewTxComingByTxId(TxIdType),
 
-    RawBlockComing(Block, u32),
-
+    // RawBlockComing(Block, u32),
     GetBalance(AddressType, crossbeam::channel::Sender<BalanceType>),
 
     UpdateDelta(TransactionDelta),
 
-    TxConsumed(TxIdType),
+    TxRemoved(TxIdType),
+
+    TxConfirmed(TxIdType),
 }
 
 impl Debug for IndexerEvent {
@@ -30,14 +32,17 @@ impl Debug for IndexerEvent {
             IndexerEvent::UpdateDelta(_) => {
                 write!(f, "UpdateDelta")
             }
-            IndexerEvent::TxConsumed(_) => {
-                write!(f, "TxConsumed")
+            IndexerEvent::TxConfirmed(v) => {
+                write!(f, "TxConfirmed :{:?}", v)
             }
-            IndexerEvent::RawBlockComing(_, _) => {
-                write!(f, "RawBlockComing")
-            }
+            // IndexerEvent::RawBlockComing(_, _) => {
+            //     write!(f, "RawBlockComing")
+            // }
             IndexerEvent::NewTxComingByTxId(_) => {
                 write!(f, "NewTxComingByTxId")
+            }
+            IndexerEvent::TxRemoved(v) => {
+                write!(f, "TxRemoved: {}", v.0)
             }
         }
     }
@@ -125,11 +130,17 @@ impl TxIdType {
 }
 impl From<Txid> for TxIdType {
     fn from(value: Txid) -> Self {
-        Self(hex::encode(&value))
+        Self(value.to_string())
+    }
+}
+impl From<String> for TxIdType {
+    fn from(value: String) -> Self {
+        Self(value)
     }
 }
 impl Into<Txid> for TxIdType {
     fn into(self) -> Txid {
+        // let tx = hex::decode(&self.0).unwrap();
         Txid::from_str(&self.0).unwrap()
     }
 }

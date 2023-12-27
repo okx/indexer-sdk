@@ -51,12 +51,6 @@ impl CommonClient {
         Self { rx, tx }
     }
 
-    fn do_tx_consumed(&mut self, tx_id: TxIdType) -> IndexerResult<()> {
-        self.tx
-            .send_blocking(IndexerEvent::TxConsumed(tx_id))
-            .unwrap();
-        Ok(())
-    }
     fn do_get_balance(
         &self,
         address: AddressType,

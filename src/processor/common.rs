@@ -1,6 +1,7 @@
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
+use crate::storage::prefix::{DeltaStatus, SeenStatus};
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
 use crate::types::response::{DataEnum, GetDataResponse};
@@ -89,6 +90,8 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         &mut self,
         tx: async_channel::Sender<IndexerEvent>,
     ) -> IndexerResult<()> {
+        let all_unconsumed = self.storage.get_all_un_consumed_txs().await?;
+        info!("all unconsumed txs:{:?}", all_unconsumed);
         let txs = {
             // sort by timestamp to execute tx in order
             let txs = self.btc_client.get_raw_mempool_verbose()?;
@@ -124,12 +127,15 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             IndexerEvent::UpdateDelta(data) => {
                 self.do_handle_update_delta(data).await?;
             }
-            IndexerEvent::TxConsumed(tx_id) => {
-                self.do_handle_tx_consumed(tx_id).await?;
+            IndexerEvent::TxConfirmed(tx_id) => {
+                self.do_handle_tx_confirmed(tx_id, DeltaStatus::Confirmed)
+                    .await?;
             }
-            IndexerEvent::RawBlockComing(_, _) => {}
             IndexerEvent::NewTxComingByTxId(tx_id) => {
                 self.do_handle_new_tx_coming_by_tx_id(tx_id).await?;
+            }
+            IndexerEvent::TxRemoved(tx_id) => {
+                self.do_handle_tx_removed(tx_id).await?;
             }
         }
         Ok(())
@@ -170,17 +176,26 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         self.storage.add_transaction_delta(data).await?;
         Ok(())
     }
-    async fn do_handle_tx_consumed(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
-        self.storage.remove_transaction_delta(tx_id).await?;
+    async fn do_handle_tx_confirmed(
+        &mut self,
+        tx_id: &TxIdType,
+        status: DeltaStatus,
+    ) -> IndexerResult<()> {
+        self.storage.remove_transaction_delta(tx_id, status).await?;
         Ok(())
     }
     async fn do_handle_new_tx_coming_by_tx_id(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
         let txid: Txid = tx_id.clone().into();
+        info!("do_handle_new_tx_coming_by_tx_id,txid:{:?}", txid);
         let transaction = self.btc_client.get_raw_transaction(&txid, None)?;
         let data = serialize(&transaction);
         self.do_handle_new_tx_coming(&data).await?;
 
         Ok(())
+    }
+    async fn do_handle_tx_removed(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
+        self.do_handle_tx_confirmed(tx_id, DeltaStatus::InActive)
+            .await
     }
 }
 

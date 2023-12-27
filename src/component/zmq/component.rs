@@ -1,11 +1,15 @@
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
-use crate::event::IndexerEvent;
+use crate::event::{IndexerEvent, TxIdType};
+use crate::factory::common::create_client_from_configuration;
 use crate::{Component, HookComponent};
 use bitcoincore_rpc::bitcoin::consensus::{deserialize, Decodable};
-use bitcoincore_rpc::bitcoin::{Block, Transaction};
+use bitcoincore_rpc::bitcoin::hashes::Hash;
+use bitcoincore_rpc::bitcoin::{Block, BlockHash, Transaction, Txid};
 use bitcoincore_rpc::{bitcoin, RpcApi};
 use log::{error, info, warn};
+use may::go;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
 use std::sync::Arc;
 use std::thread::sleep;
@@ -71,6 +75,7 @@ struct ZeroMQNode {
     config: IndexerConfiguration,
     sender: async_channel::Sender<IndexerEvent>,
     flag: Arc<AtomicBool>,
+    client: Arc<bitcoincore_rpc::Client>,
 }
 
 impl ZeroMQNode {
@@ -79,10 +84,12 @@ impl ZeroMQNode {
         sender: async_channel::Sender<IndexerEvent>,
         flag: Arc<AtomicBool>,
     ) -> Self {
+        let client = create_client_from_configuration(config.clone());
         Self {
             config,
             sender,
             flag,
+            client: Arc::new(client),
         }
     }
     async fn start(&self, exit: Receiver<()>) -> JoinHandle<()> {
@@ -97,7 +104,8 @@ impl ZeroMQNode {
             // for topic in &node.config.mq.zmq_topic {
             //     socket.subscribe(topic).await.unwrap();
             // }
-            socket.subscribe("rawtx").await.unwrap();
+            // socket.subscribe("rawtx").await.unwrap();
+            socket.subscribe("sequence").await.unwrap();
             loop {
                 tokio::select! {
                         event=socket.recv()=>{
@@ -116,22 +124,25 @@ impl ZeroMQNode {
                             }
 
                             let message=event.unwrap();
-                            node.handle_message(&message).await;
+                            if let Err(e)=node.handle_message(&message).await{
+                                error!("handle message failed:{:?}",e);
+                                continue
+                        }
                         }
                 }
             }
         })
     }
 
-    async fn handle_message(&self, message: &ZmqMessage) {
+    async fn handle_message(&self, message: &ZmqMessage) -> IndexerResult<()> {
         let data = message.clone().into_vec();
         if data.is_empty() {
             warn!("receive empty message");
-            return;
+            return Ok(());
         }
         if data.len() != 3 {
-            warn!("receive invalid message");
-            return;
+            warn!("receive invalid message:{:?}", &data);
+            return Ok(());
         }
         let topic = data.get(0).unwrap();
         let body = data.get(1).unwrap();
@@ -143,21 +154,54 @@ impl ZeroMQNode {
                 deserialize(&raw_tx_data).expect("Failed to deserialize transaction");
             let sequence_number =
                 u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
-            let event = IndexerEvent::NewTxComing(raw_tx_data, sequence_number);
             info!(
                 "receive new raw tx,tx_id:{},sequence:{}",
                 transaction.txid(),
                 sequence_number
             );
+            let event = IndexerEvent::NewTxComing(raw_tx_data, sequence_number);
             Some(event)
         } else if topic == "hashblock" {
-            let block_hash = hex::encode(&body.to_vec());
+            let data = body.to_vec();
+            let block_hash = hex::encode(&data);
             let sequence_number =
                 u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
             info!(
                 "receive new block hash:{},sequence:{}",
                 block_hash, sequence_number
             );
+            let client = self.client.clone();
+            let mut block_info = None;
+            loop {
+                let block = client.get_block(&BlockHash::from_slice(&data).unwrap());
+                if let Err(e) = block {
+                    error!("get block info failed:{:?},have to sleep", e);
+                    tokio::time::sleep(Duration::from_secs(3)).await;
+                    continue;
+                }
+                block_info = Some(block.unwrap());
+                break;
+            }
+            let block_info: Block = block_info.unwrap();
+            let txs: Vec<TxIdType> = block_info
+                .txdata
+                .into_iter()
+                .map(|v| v.txid().into())
+                .collect();
+            info!(
+                "block txs,block_hash:{:?},txs count:{:?}",
+                block_hash,
+                txs.len()
+            );
+            let sender = self.sender.clone();
+            go!(move || {
+                for tx in txs {
+                    sender
+                        .send_blocking(IndexerEvent::NewTxComing(tx.to_bytes(), sequence_number))
+                        .expect("unreachable")
+                }
+            });
+
             None
         } else if topic == "hashtx" {
             let tx_hash = hex::encode(&body.to_vec());
@@ -169,11 +213,10 @@ impl ZeroMQNode {
             );
             None
         } else if topic == "rawblock" {
-            let raw_block_data = body.to_vec();
-            let block: Block = bitcoin::consensus::deserialize(&raw_block_data).unwrap();
             let sequence_number =
                 u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
-            Some(IndexerEvent::RawBlockComing(block, sequence_number))
+            info!("receive new raw block,sequence:{}", sequence_number);
+            None
         } else if topic == "sequence" {
             let hash = hex::encode(&body[..32]);
             let label = body[32] as char;
@@ -181,7 +224,20 @@ impl ZeroMQNode {
                 "receive sequence topic:{:?},tx_hash:{},label:{}",
                 topic, hash, label
             );
-            None
+            if label == 'R' {
+                Some(IndexerEvent::TxRemoved(TxIdType::from(hash)))
+            } else if label == 'A' {
+                // ignore,we will listen the rawtx event
+                None
+            } else if label == 'C' {
+                Some(IndexerEvent::TxConfirmed(TxIdType::from(hash)))
+            } else {
+                warn!(
+                    "receive unknown label:{:?},maybe we need to handle it",
+                    label
+                );
+                None
+            }
         } else {
             warn!("receive unknown topic:{:?}", topic);
             None
@@ -189,6 +245,7 @@ impl ZeroMQNode {
         if let Some(event) = event {
             self.sender.send(event).await.expect("unreachable");
         }
+        Ok(())
     }
 }
 
