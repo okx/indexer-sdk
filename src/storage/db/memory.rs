@@ -3,10 +3,11 @@ use crate::storage::db::DB;
 use rusty_leveldb::WriteBatch;
 use std::collections::HashMap;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct MemoryDB {
     datas: HashMap<Vec<u8>, Vec<u8>>,
 }
+
 impl DB for MemoryDB {
     fn set(&mut self, key: &[u8], value: &[u8]) -> IndexerResult<()> {
         self.datas.insert(key.to_vec(), value.to_vec());

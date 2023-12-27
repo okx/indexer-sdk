@@ -24,11 +24,11 @@ impl<T: StorageProcessor> ThreadSafeStorageProcessor<T> {
 impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
     async fn get_balance(
         &mut self,
-        token_type: &TokenType,
         address: &AddressType,
+        token_type: &TokenType,
     ) -> IndexerResult<BalanceType> {
         let count = self.rw_lock.read().await;
-        let ret = self.internal.get_balance(token_type, address).await?;
+        let ret = self.internal.get_balance(address, token_type).await?;
         debug!("write count:{:?}", count);
         Ok(ret)
     }

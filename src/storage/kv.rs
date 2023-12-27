@@ -11,16 +11,21 @@ use rusty_leveldb::WriteBatch;
 use serde::{Deserialize, Serialize};
 
 const MAX_DELAY: i64 = 60 * 60 * 24 * 5; // five days
-pub struct KVStorageProcessor<T: DB + Send + Sync> {
+
+#[derive(Clone)]
+pub struct KVStorageProcessor<T: DB + Send + Sync + Clone> {
     db: T,
 }
 
+unsafe impl<T: DB + Send + Sync + Clone> Send for KVStorageProcessor<T> {}
+unsafe impl<T: DB + Send + Sync + Clone> Sync for KVStorageProcessor<T> {}
+
 #[async_trait::async_trait]
-impl<T: DB + Send + Sync> StorageProcessor for KVStorageProcessor<T> {
+impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
     async fn get_balance(
         &mut self,
-        token_type: &TokenType,
         address: &AddressType,
+        token_type: &TokenType,
     ) -> IndexerResult<BalanceType> {
         let key = KeyPrefix::build_address_token_key(address, token_type);
         let value = self
@@ -123,9 +128,9 @@ pub struct TransactionDeltaWrapper {
     pub data: TransactionDelta,
     pub status: u8,
 }
-impl<T: DB + Send + Sync> KVStorageProcessor<T> {
-    pub fn new(db: T) -> IndexerResult<Self> {
-        Ok(Self { db })
+impl<T: DB + Send + Sync + Clone> KVStorageProcessor<T> {
+    pub fn new(db: T) -> Self {
+        Self { db }
     }
 
     fn get_transaction_delta_by_tx_id(
@@ -241,9 +246,9 @@ mod tests {
     #[tokio::test]
     pub async fn test_get_balance() {
         let db = MemoryDB::default();
-        let mut storage = KVStorageProcessor::new(db).unwrap();
+        let mut storage = KVStorageProcessor::new(db);
 
-        // let address=AddressType::from_bytes(&[0u8;20]);
+        // let address = AddressType::from_bytes(&[0u8; 20]);
         // let tx_id = [0u8; 32];
         // let mut delta = HashMap::default();
         // let delta = TransactionDelta {
@@ -255,6 +260,6 @@ mod tests {
     #[tokio::test]
     pub async fn test_update_state() {
         let db = MemoryDB::default();
-        let mut storage = KVStorageProcessor::new(db).unwrap();
+        let mut storage = KVStorageProcessor::new(db);
     }
 }

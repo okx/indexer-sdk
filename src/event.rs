@@ -42,15 +42,27 @@ impl Debug for IndexerEvent {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, Hash, PartialEq)]
 pub struct BalanceType(pub bigdecimal::BigDecimal);
 
-pub type AddressType = Vec<u8>;
-pub type TokenType = Vec<u8>;
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, Hash, PartialEq)]
+pub struct AddressType(pub Vec<u8>);
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, Hash, PartialEq)]
+pub struct TokenType(pub Vec<u8>);
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, Hash, PartialEq)]
 pub struct TxIdType(pub String);
 
+impl AddressType {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.0.clone()
+    }
+}
+impl TokenType {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.0.clone()
+    }
+}
 impl TxIdType {
     pub fn to_bytes(&self) -> Vec<u8> {
         hex::decode(&self.0).unwrap()

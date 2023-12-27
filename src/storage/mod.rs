@@ -1,5 +1,5 @@
-mod db;
-mod kv;
+pub mod db;
+pub mod kv;
 pub mod memory;
 mod prefix;
 pub mod thread_safe;
@@ -13,8 +13,8 @@ use bitcoincore_rpc::bitcoin::Transaction;
 pub trait StorageProcessor: Send + Sync {
     async fn get_balance(
         &mut self,
-        token_type: &TokenType,
         address: &AddressType,
+        token_type: &TokenType,
     ) -> IndexerResult<BalanceType>;
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()>;
     async fn remove_transaction_delta(&mut self, tx_id: &TxIdType) -> IndexerResult<()>;
@@ -28,10 +28,10 @@ pub trait StorageProcessor: Send + Sync {
 impl StorageProcessor for Box<dyn StorageProcessor> {
     async fn get_balance(
         &mut self,
-        token_type: &TokenType,
         address: &AddressType,
+        token_type: &TokenType,
     ) -> IndexerResult<BalanceType> {
-        self.as_mut().get_balance(token_type, address).await
+        self.as_mut().get_balance(address, token_type).await
     }
 
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()> {

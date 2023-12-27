@@ -2,7 +2,8 @@ use crate::client::common::CommonClient;
 use crate::component::zmq::component::ZeroMQComponent;
 use crate::configuration::base::IndexerConfiguration;
 use crate::processor::common::IndexerProcessorImpl;
-use crate::storage::memory::MemoryStorageProcessor;
+use crate::storage::db::memory::MemoryDB;
+use crate::storage::kv::KVStorageProcessor;
 use crate::{Component, ComponentTemplate};
 use bitcoincore_rpc::{Auth, Client};
 use core::arch;
@@ -26,7 +27,8 @@ pub async fn async_create_and_start_processor(
         exit(-1);
     }));
     let flag = Arc::new(AtomicBool::new(false));
-    let default_memory_storage = MemoryStorageProcessor::default();
+    let db = MemoryDB::default();
+    let default_memory_storage = KVStorageProcessor::new(db);
     let client = create_client_from_configuration(origin_cfg.clone());
 
     let (notify_tx, notify_rx) = crossbeam::channel::unbounded();
