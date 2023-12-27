@@ -162,10 +162,9 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         address: &AddressType,
         tx: &crossbeam::channel::Sender<BalanceType>,
     ) -> IndexerResult<()> {
-        let ret = self.storage.get_balance(address).await?;
-        let _ = tx.send(ret);
-        Ok(())
+        todo!()
     }
+
     async fn do_handle_update_delta(&mut self, data: &TransactionDelta) -> IndexerResult<()> {
         self.storage.add_transaction_delta(data).await?;
         Ok(())

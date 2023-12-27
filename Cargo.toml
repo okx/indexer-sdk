@@ -26,6 +26,10 @@ hex = "0.4.3"
 #may = "0.3.42"
 #primitive-types = "0.12.1"
 bigdecimal = { version = "0.3.0", features = ["serde"] }
+
+rusty-leveldb = "3.0.0"
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = { version = "1.0.93" }
 [lib]
 name = "mylibrary"
 crate-type = ["cdylib", "lib"]

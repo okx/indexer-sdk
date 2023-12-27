@@ -1,5 +1,6 @@
 use crate::types::delta::TransactionDelta;
 use bitcoincore_rpc::bitcoin::Block;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
 #[derive(Clone)]
@@ -40,7 +41,7 @@ impl Debug for IndexerEvent {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct BalanceType(pub bigdecimal::BigDecimal);
 
 pub type AddressType = Vec<u8>;

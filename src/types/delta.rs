@@ -1,8 +1,9 @@
-use crate::event::{AddressType, BalanceType, TokenType};
+use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionDelta {
-    pub tx_id: String,
+    pub tx_id: TxIdType,
     pub deltas: HashMap<AddressType, Vec<(TokenType, BalanceType)>>,
 }

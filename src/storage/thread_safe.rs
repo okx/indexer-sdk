@@ -1,5 +1,5 @@
 use crate::error::IndexerResult;
-use crate::event::{AddressType, BalanceType, TxIdType};
+use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
 use log::debug;
@@ -21,9 +21,13 @@ impl<T: StorageProcessor> ThreadSafeStorageProcessor<T> {
 
 #[async_trait::async_trait]
 impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
-    async fn get_balance(&self, address: &AddressType) -> IndexerResult<BalanceType> {
+    async fn get_balance(
+        &self,
+        token_type: &TokenType,
+        address: &AddressType,
+    ) -> IndexerResult<BalanceType> {
         let count = self.rw_lock.read().await;
-        let ret = self.internal.get_balance(address).await?;
+        let ret = self.internal.get_balance(token_type, address).await?;
         debug!("write count:{:?}", count);
         Ok(ret)
     }

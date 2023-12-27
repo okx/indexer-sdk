@@ -35,7 +35,11 @@ type BalanceWrapper = Rc<RefCell<BalanceType>>;
 
 #[async_trait::async_trait]
 impl StorageProcessor for MemoryStorageProcessor {
-    async fn get_balance(&self, address: &AddressType) -> IndexerResult<BalanceType> {
+    async fn get_balance(
+        &self,
+        token_type: &TokenType,
+        address: &AddressType,
+    ) -> IndexerResult<BalanceType> {
         todo!()
     }
 

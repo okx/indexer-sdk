@@ -1,14 +1,19 @@
-mod level_db;
+mod db;
+mod kv;
 pub mod memory;
 pub mod thread_safe;
 
 use crate::error::IndexerResult;
-use crate::event::{AddressType, BalanceType, TxIdType};
+use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
 
 #[async_trait::async_trait]
 pub trait StorageProcessor: Send + Sync {
-    async fn get_balance(&self, address: &AddressType) -> IndexerResult<BalanceType>;
+    async fn get_balance(
+        &self,
+        token_type: &TokenType,
+        address: &AddressType,
+    ) -> IndexerResult<BalanceType>;
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()>;
     async fn remove_transaction_delta(&mut self, tx_id: &TxIdType) -> IndexerResult<()>;
     async fn seen_and_store_txs(&mut self, tx_id: TxIdType) -> IndexerResult<bool>;
@@ -17,8 +22,12 @@ pub trait StorageProcessor: Send + Sync {
 
 #[async_trait::async_trait]
 impl StorageProcessor for Box<dyn StorageProcessor> {
-    async fn get_balance(&self, address: &AddressType) -> IndexerResult<BalanceType> {
-        self.as_ref().get_balance(address).await
+    async fn get_balance(
+        &self,
+        token_type: &TokenType,
+        address: &AddressType,
+    ) -> IndexerResult<BalanceType> {
+        self.as_ref().get_balance(token_type, address).await
     }
 
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()> {
