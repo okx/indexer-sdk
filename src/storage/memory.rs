@@ -2,6 +2,7 @@ use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
+use bitcoincore_rpc::bitcoin::Transaction;
 use log::info;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -119,7 +120,8 @@ impl StorageProcessor for MemoryStorageProcessor {
         Ok(())
     }
 
-    async fn seen_and_store_txs(&mut self, tx_id: TxIdType) -> IndexerResult<bool> {
+    async fn seen_and_store_txs(&mut self, tx: Transaction) -> IndexerResult<bool> {
+        let tx_id = tx.txid().into();
         if self.seen_txs.contains(&tx_id) {
             return Ok(true);
         }
@@ -127,8 +129,12 @@ impl StorageProcessor for MemoryStorageProcessor {
         Ok(false)
     }
 
-    async fn seen_tx(&self, tx_id: TxIdType) -> IndexerResult<bool> {
+    async fn seen_tx(&mut self, tx_id: TxIdType) -> IndexerResult<bool> {
         Ok(self.seen_txs.contains(&tx_id))
+    }
+
+    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<Vec<TxIdType>> {
+        todo!()
     }
 }
 

@@ -136,8 +136,8 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     }
     pub(crate) async fn do_handle_new_tx_coming(&mut self, data: &Vec<u8>) -> IndexerResult<()> {
         let data = self.parse_zmq_data(&data);
-        if let Some((tx_id, data)) = data {
-            if self.storage.seen_and_store_txs(tx_id.clone()).await? {
+        if let Some((tx_id, data, tx)) = data {
+            if self.storage.seen_and_store_txs(tx).await? {
                 info!("tx_id:{:?} has been seen", tx_id);
                 return Ok(());
             }
@@ -146,7 +146,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         }
         Ok(())
     }
-    fn parse_zmq_data(&self, data: &Vec<u8>) -> Option<(TxIdType, GetDataResponse)> {
+    fn parse_zmq_data(&self, data: &Vec<u8>) -> Option<(TxIdType, GetDataResponse, Transaction)> {
         let tx: Transaction = deserialize(&data).expect("Failed to deserialize transaction");
         Some((
             tx.txid().into(),
@@ -154,6 +154,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 data_type: DataEnum::NewTx,
                 data: data.clone(),
             },
+            tx,
         ))
     }
 

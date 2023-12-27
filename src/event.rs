@@ -55,6 +55,9 @@ impl TxIdType {
     pub fn to_bytes(&self) -> Vec<u8> {
         hex::decode(&self.0).unwrap()
     }
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        Self(hex::encode(bytes))
+    }
 }
 impl From<Txid> for TxIdType {
     fn from(value: Txid) -> Self {
