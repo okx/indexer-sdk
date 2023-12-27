@@ -12,7 +12,7 @@ use bitcoincore_rpc::bitcoin::Transaction;
 #[async_trait::async_trait]
 pub trait StorageProcessor: Send + Sync {
     async fn get_balance(
-        &self,
+        &mut self,
         token_type: &TokenType,
         address: &AddressType,
     ) -> IndexerResult<BalanceType>;
@@ -27,11 +27,11 @@ pub trait StorageProcessor: Send + Sync {
 #[async_trait::async_trait]
 impl StorageProcessor for Box<dyn StorageProcessor> {
     async fn get_balance(
-        &self,
+        &mut self,
         token_type: &TokenType,
         address: &AddressType,
     ) -> IndexerResult<BalanceType> {
-        self.as_ref().get_balance(token_type, address).await
+        self.as_mut().get_balance(token_type, address).await
     }
 
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()> {

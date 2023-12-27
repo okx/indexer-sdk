@@ -1,6 +1,6 @@
 use crate::client::Client;
 use crate::error::IndexerResult;
-use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
+use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
 use crate::types::response::GetDataResponse;
 use crossbeam::channel::{Receiver, TryRecvError};
@@ -27,20 +27,22 @@ impl Client for CommonClient {
         self.do_get_data()
     }
 
-    async fn push_data(&self, _: Vec<u8>) -> IndexerResult<()> {
+    async fn push_data(&self, data: Vec<u8>) -> IndexerResult<()> {
+        let data: TransactionDelta = serde_json::from_slice(data.as_slice()).unwrap();
+        self.tx.send(IndexerEvent::UpdateDelta(data)).await.unwrap();
         Ok(())
     }
 
-    async fn get_balance(&self, address_type: AddressType) -> IndexerResult<BalanceType> {
-        self.do_get_balance(address_type)
+    async fn get_balance(
+        &mut self,
+        address_type: AddressType,
+        token_type: TokenType,
+    ) -> IndexerResult<BalanceType> {
+        self.do_get_balance(address_type, token_type)
     }
 
     async fn update_delta(&mut self, result: TransactionDelta) -> IndexerResult<()> {
         self.do_update_delta(result)
-    }
-
-    async fn tx_consumed(&mut self, tx_id: TxIdType) -> IndexerResult<()> {
-        self.do_tx_consumed(tx_id)
     }
 }
 
@@ -55,7 +57,11 @@ impl CommonClient {
             .unwrap();
         Ok(())
     }
-    fn do_get_balance(&self, address: AddressType) -> IndexerResult<BalanceType> {
+    fn do_get_balance(
+        &self,
+        address: AddressType,
+        token_type: TokenType,
+    ) -> IndexerResult<BalanceType> {
         let (tx, rx) = crossbeam::channel::bounded(1);
         self.tx
             .send_blocking(IndexerEvent::GetBalance(address, tx))

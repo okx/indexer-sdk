@@ -1,5 +1,6 @@
-mod level_db;
-mod prefix;
+pub mod level_db;
+pub mod memory;
+pub mod prefix;
 
 use crate::error::IndexerResult;
 use rusty_leveldb::WriteBatch;

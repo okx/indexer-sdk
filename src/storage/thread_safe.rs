@@ -23,7 +23,7 @@ impl<T: StorageProcessor> ThreadSafeStorageProcessor<T> {
 #[async_trait::async_trait]
 impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
     async fn get_balance(
-        &self,
+        &mut self,
         token_type: &TokenType,
         address: &AddressType,
     ) -> IndexerResult<BalanceType> {

@@ -18,11 +18,19 @@ pub struct KVStorageProcessor<T: DB + Send + Sync> {
 #[async_trait::async_trait]
 impl<T: DB + Send + Sync> StorageProcessor for KVStorageProcessor<T> {
     async fn get_balance(
-        &self,
+        &mut self,
         token_type: &TokenType,
         address: &AddressType,
     ) -> IndexerResult<BalanceType> {
-        todo!()
+        let key = KeyPrefix::build_address_token_key(address, token_type);
+        let value = self
+            .db
+            .get(key.as_slice())?
+            .map_or(BalanceType::default(), |v| {
+                let bal: BalanceType = serde_json::from_slice(v.as_slice()).unwrap();
+                bal
+            });
+        Ok(value)
     }
 
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()> {
@@ -43,6 +51,7 @@ impl<T: DB + Send + Sync> StorageProcessor for KVStorageProcessor<T> {
         self.wrap_update_state(&mut batch, next_state);
         // build user utxo
         self.wrap_address_utxo(&mut batch, transaction, true)?;
+        self.rm_seen_record(&mut batch, &transaction.tx_id);
 
         self.db.write_batch(batch, true)?;
         Ok(())
@@ -173,8 +182,6 @@ impl<T: DB + Send + Sync> KVStorageProcessor<T> {
         let key = binding.as_slice();
         batch.put(key, index.to_le_bytes().as_slice());
     }
-    // 是为了get_balance 服务的,
-    // 输入地址可以得到这个账户的全部 token 的余额
     // address|token -> balance
     pub(crate) fn wrap_address_utxo(
         &mut self,
@@ -202,6 +209,10 @@ impl<T: DB + Send + Sync> KVStorageProcessor<T> {
         }
         Ok(())
     }
+    pub(crate) fn rm_seen_record(&mut self, batch: &mut WriteBatch, tx_id: &TxIdType) {
+        let key = KeyPrefix::build_seen_tx_key(tx_id);
+        batch.delete(key.as_slice());
+    }
     pub fn update_state(&mut self, id: u32) -> IndexerResult<()> {
         let key = KeyPrefix::State.get_prefix();
         self.db.set(key, id.to_le_bytes().as_slice())?;
@@ -218,5 +229,32 @@ impl<T: DB + Send + Sync> KVStorageProcessor<T> {
             .get(key)?
             .map_or(1, |v| u32::from_le_bytes(v.as_slice().try_into().unwrap()));
         Ok(ret)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::db::memory::MemoryDB;
+    use std::collections::HashMap;
+
+    #[tokio::test]
+    pub async fn test_get_balance() {
+        let db = MemoryDB::default();
+        let mut storage = KVStorageProcessor::new(db).unwrap();
+
+        // let address=AddressType::from_bytes(&[0u8;20]);
+        // let tx_id = [0u8; 32];
+        // let mut delta = HashMap::default();
+        // let delta = TransactionDelta {
+        //     tx_id: TxIdType::from_bytes(&tx_id),
+        //     deltas: Default::default(),
+        // };
+        // storage.add_transaction_delta()
+    }
+    #[tokio::test]
+    pub async fn test_update_state() {
+        let db = MemoryDB::default();
+        let mut storage = KVStorageProcessor::new(db).unwrap();
     }
 }
