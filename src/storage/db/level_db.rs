@@ -1,29 +1,47 @@
 use crate::error::IndexerResult;
 use crate::storage::db::DB;
 use rusty_leveldb::{LdbIterator, WriteBatch};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct LevelDB {
-    db: rusty_leveldb::DB,
+    db: Rc<RefCell<rusty_leveldb::DB>>,
+}
+
+unsafe impl Send for LevelDB {}
+unsafe impl Sync for LevelDB {}
+
+impl Clone for LevelDB {
+    fn clone(&self) -> Self {
+        LevelDB {
+            db: self.db.clone(),
+        }
+    }
 }
 
 impl Default for LevelDB {
     fn default() -> Self {
-        let db = rusty_leveldb::DB::open("./db", rusty_leveldb::Options::default()).unwrap();
+        let db = Rc::new(RefCell::new(
+            rusty_leveldb::DB::open("./db", rusty_leveldb::Options::default()).unwrap(),
+        ));
         LevelDB { db }
     }
 }
 impl DB for LevelDB {
     fn set(&mut self, key: &[u8], value: &[u8]) -> IndexerResult<()> {
-        self.db.put(key, value)?;
+        let mut db = self.db.borrow_mut();
+        db.put(key, value)?;
         Ok(())
     }
 
     fn get(&mut self, key: &[u8]) -> IndexerResult<Option<Vec<u8>>> {
-        Ok(self.db.get(key))
+        let mut db = self.db.borrow_mut();
+        Ok(db.get(key))
     }
 
     fn write_batch(&mut self, batch: WriteBatch, sync: bool) -> IndexerResult<()> {
-        self.db.write(batch, sync)?;
+        let mut db = self.db.borrow_mut();
+        db.write(batch, sync)?;
         Ok(())
     }
 
@@ -38,7 +56,8 @@ impl DB for LevelDB {
         KF: Fn(Vec<u8>) -> K,
         VF: Fn(Vec<u8>) -> Option<V>,
     {
-        let mut iter = self.db.new_iter()?;
+        let mut db = self.db.borrow_mut();
+        let mut iter = db.new_iter()?;
         iter.seek(prefix);
 
         let mut ret = vec![];

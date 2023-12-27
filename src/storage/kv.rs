@@ -16,6 +16,11 @@ const MAX_DELAY: i64 = 60 * 60 * 24 * 5; // five days
 pub struct KVStorageProcessor<T: DB + Send + Sync + Clone> {
     db: T,
 }
+impl<T: DB + Send + Sync + Clone + Default> Default for KVStorageProcessor<T> {
+    fn default() -> Self {
+        Self { db: T::default() }
+    }
+}
 
 unsafe impl<T: DB + Send + Sync + Clone> Send for KVStorageProcessor<T> {}
 unsafe impl<T: DB + Send + Sync + Clone> Sync for KVStorageProcessor<T> {}
@@ -86,7 +91,7 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         Ok(())
     }
 
-    async fn seen_and_store_txs(&mut self, tx: Transaction) -> IndexerResult<bool> {
+    async fn seen_and_store_txs(&mut self, tx: &Transaction) -> IndexerResult<bool> {
         let tx_id: TxIdType = tx.txid().into();
         let ret = self.seen_tx(tx_id.clone()).await?;
         if ret {

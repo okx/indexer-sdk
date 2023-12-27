@@ -3,14 +3,16 @@ use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
 use crate::types::response::GetDataResponse;
+use bitcoincore_rpc::bitcoin::consensus::serialize;
+use bitcoincore_rpc::bitcoin::Transaction;
 use crossbeam::channel::{Receiver, TryRecvError};
 use log::info;
 
 #[repr(C)]
 #[derive(Clone)]
 pub struct CommonClient {
-    rx: Receiver<GetDataResponse>,
-    tx: async_channel::Sender<IndexerEvent>,
+    pub(crate) rx: Receiver<Transaction>,
+    pub(crate) tx: async_channel::Sender<IndexerEvent>,
 }
 
 impl Default for CommonClient {
@@ -23,7 +25,7 @@ impl Default for CommonClient {
 
 #[async_trait::async_trait]
 impl Client for CommonClient {
-    async fn get_data(&self) -> IndexerResult<Option<GetDataResponse>> {
+    async fn get_data(&self) -> IndexerResult<Option<Transaction>> {
         self.do_get_data()
     }
 
@@ -47,7 +49,7 @@ impl Client for CommonClient {
 }
 
 impl CommonClient {
-    pub fn new(rx: Receiver<GetDataResponse>, tx: async_channel::Sender<IndexerEvent>) -> Self {
+    pub fn new(rx: Receiver<Transaction>, tx: async_channel::Sender<IndexerEvent>) -> Self {
         Self { rx, tx }
     }
 
@@ -69,7 +71,7 @@ impl CommonClient {
             .unwrap();
         Ok(())
     }
-    fn do_get_data(&self) -> IndexerResult<Option<GetDataResponse>> {
+    fn do_get_data(&self) -> IndexerResult<Option<Transaction>> {
         let res = self.rx.try_recv();
         return match res {
             Ok(ret) => {
@@ -94,11 +96,7 @@ impl CommonClient {
             return vec![];
         }
         let data = data.unwrap();
-        if data.data.is_empty() {
-            return vec![];
-        }
-        let mut ret = data.data.clone();
-        ret.push(data.data_type.to_u8());
-        ret
+        let raw_data = serialize(&data);
+        raw_data
     }
 }

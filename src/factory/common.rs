@@ -1,7 +1,9 @@
 use crate::client::common::CommonClient;
+use crate::client::drect::DirectClient;
 use crate::component::zmq::component::ZeroMQComponent;
 use crate::configuration::base::IndexerConfiguration;
 use crate::processor::common::IndexerProcessorImpl;
+use crate::storage::db::level_db::LevelDB;
 use crate::storage::db::memory::MemoryDB;
 use crate::storage::kv::KVStorageProcessor;
 use crate::{Component, ComponentTemplate};
@@ -20,22 +22,26 @@ use tokio::task::JoinHandle;
 pub async fn async_create_and_start_processor(
     origin_exit: watch::Receiver<()>,
     origin_cfg: IndexerConfiguration,
-) -> (CommonClient, Vec<JoinHandle<()>>) {
+) -> (
+    DirectClient<KVStorageProcessor<LevelDB>>,
+    Vec<JoinHandle<()>>,
+) {
     panic::set_hook(Box::new(|panic_info| {
         println!("panic occurred: {:?}", panic_info);
         error!("panic occurred: {:?}", panic_info);
         exit(-1);
     }));
     let flag = Arc::new(AtomicBool::new(false));
-    let db = MemoryDB::default();
-    let default_memory_storage = KVStorageProcessor::new(db);
+    // let db = MemoryDB::default();
+    let db = LevelDB::default();
+    let processor = KVStorageProcessor::new(db);
     let client = create_client_from_configuration(origin_cfg.clone());
 
     let (notify_tx, notify_rx) = crossbeam::channel::unbounded();
 
     let mut processor_wrapper = ComponentTemplate::new(IndexerProcessorImpl::new(
         notify_tx.clone(),
-        default_memory_storage,
+        processor.clone(),
         client,
         flag.clone(),
     ));
@@ -53,10 +59,8 @@ pub async fn async_create_and_start_processor(
     processor_wrapper.init(origin_cfg.clone()).await.unwrap();
     ret.extend(processor_wrapper.start(origin_exit.clone()).await.unwrap());
 
-    (
-        CommonClient::new(notify_rx.clone(), indexer_tx.clone()),
-        ret,
-    )
+    let client = CommonClient::new(notify_rx.clone(), indexer_tx.clone());
+    (DirectClient::new(processor.clone(), client), ret)
 }
 
 pub(crate) fn create_client_from_configuration(
@@ -69,7 +73,9 @@ pub(crate) fn create_client_from_configuration(
     .unwrap()
 }
 
-pub fn sync_create_and_start_processor(origin_cfg: IndexerConfiguration) -> CommonClient {
+pub fn sync_create_and_start_processor(
+    origin_cfg: IndexerConfiguration,
+) -> DirectClient<KVStorageProcessor<LevelDB>> {
     let (tx, rx) = watch::channel(());
     let rt = Runtime::new().unwrap();
     let ret = rt.block_on(async_create_and_start_processor(rx, origin_cfg));

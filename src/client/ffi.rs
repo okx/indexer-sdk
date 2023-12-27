@@ -1,14 +1,27 @@
 use crate::client::common::CommonClient;
+use crate::client::drect::DirectClient;
 use crate::configuration::base::{IndexerConfiguration, NetConfiguration, ZMQConfiguration};
 use crate::factory::common::sync_create_and_start_processor;
+use crate::storage::db::level_db::LevelDB;
+use crate::storage::kv::KVStorageProcessor;
 use log::info;
 use once_cell::sync::Lazy;
 use std::ops::DerefMut;
 
-static mut NOTIFIER: Lazy<CommonClient> = Lazy::new(|| CommonClient::default());
+static mut NOTIFIER: Lazy<Option<DirectClient<KVStorageProcessor<LevelDB>>>> = Lazy::new(|| None);
 
-fn get_notifier() -> &'static mut CommonClient {
-    unsafe { NOTIFIER.deref_mut() }
+fn get_notifier() -> &'static mut DirectClient<KVStorageProcessor<LevelDB>> {
+    unsafe {
+        let ret = NOTIFIER.deref_mut();
+        ret.as_mut().unwrap()
+    }
+}
+
+fn get_option_notifier() -> &'static mut Option<DirectClient<KVStorageProcessor<LevelDB>>> {
+    unsafe {
+        let ret = NOTIFIER.deref_mut();
+        ret
+    }
 }
 
 #[repr(C)]
@@ -34,8 +47,8 @@ pub extern "C" fn start_processor() {
         },
         net: NetConfiguration::default(),
     });
-    let old = get_notifier();
-    *old = ret;
+    let old = get_option_notifier();
+    *old = Some(ret);
 }
 
 #[no_mangle]

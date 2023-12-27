@@ -17,7 +17,7 @@ use std::time::Duration;
 
 #[derive(Clone)]
 pub struct IndexerProcessorImpl<T: StorageProcessor> {
-    tx: crossbeam::channel::Sender<GetDataResponse>,
+    tx: crossbeam::channel::Sender<Transaction>,
     storage: T,
     btc_client: Arc<bitcoincore_rpc::Client>,
 
@@ -30,7 +30,7 @@ unsafe impl<T: StorageProcessor> Sync for IndexerProcessorImpl<T> {}
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     pub fn new(
-        tx: crossbeam::channel::Sender<GetDataResponse>,
+        tx: crossbeam::channel::Sender<Transaction>,
         storage: T,
         client: bitcoincore_rpc::Client,
         flag: Arc<AtomicBool>,
@@ -155,26 +155,19 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     }
     pub(crate) async fn do_handle_new_tx_coming(&mut self, data: &Vec<u8>) -> IndexerResult<()> {
         let data = self.parse_zmq_data(&data);
-        if let Some((tx_id, data, tx)) = data {
-            if self.storage.seen_and_store_txs(tx).await? {
+        if let Some((tx_id, tx)) = data {
+            if self.storage.seen_and_store_txs(&tx).await? {
                 info!("tx_id:{:?} has been seen", tx_id);
                 return Ok(());
             }
             info!("tx_id:{:?} has not been seen,start to execute", tx_id);
-            self.tx.send(data).unwrap();
+            self.tx.send(tx).unwrap();
         }
         Ok(())
     }
-    fn parse_zmq_data(&self, data: &Vec<u8>) -> Option<(TxIdType, GetDataResponse, Transaction)> {
+    fn parse_zmq_data(&self, data: &Vec<u8>) -> Option<(TxIdType, Transaction)> {
         let tx: Transaction = deserialize(&data).expect("Failed to deserialize transaction");
-        Some((
-            tx.txid().into(),
-            GetDataResponse {
-                data_type: DataEnum::NewTx,
-                data: data.clone(),
-            },
-            tx,
-        ))
+        Some((tx.txid().into(), tx))
     }
 
     pub(crate) async fn do_handle_get_balance(

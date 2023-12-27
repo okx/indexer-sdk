@@ -54,7 +54,7 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
         Ok(())
     }
 
-    async fn seen_and_store_txs(&mut self, tx: Transaction) -> IndexerResult<bool> {
+    async fn seen_and_store_txs(&mut self, tx: &Transaction) -> IndexerResult<bool> {
         let write = self.rw_lock.write().await;
         let ret = self.internal.seen_and_store_txs(tx).await?;
         drop(write);

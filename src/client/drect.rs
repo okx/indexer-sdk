@@ -2,17 +2,35 @@ use crate::client::common::CommonClient;
 use crate::client::Client;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType};
+use crate::storage::db::level_db::LevelDB;
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
 use crate::types::response::GetDataResponse;
+use bitcoincore_rpc::bitcoin::Transaction;
+use crossbeam::channel::Receiver;
 
-pub struct DirectClient<T: StorageProcessor> {
+#[derive(Clone)]
+pub struct DirectClient<T: StorageProcessor + Clone> {
     storage: T,
-    base: CommonClient,
+    pub(crate) base: CommonClient,
 }
+impl<T: StorageProcessor + Clone + Default> Default for DirectClient<T> {
+    fn default() -> Self {
+        Self {
+            storage: T::default(),
+            base: CommonClient::default(),
+        }
+    }
+}
+impl<T: StorageProcessor + Clone> DirectClient<T> {
+    pub fn new(storage: T, base: CommonClient) -> Self {
+        Self { storage, base }
+    }
+}
+
 #[async_trait::async_trait]
-impl<T: StorageProcessor> Client for DirectClient<T> {
-    async fn get_data(&self) -> IndexerResult<Option<GetDataResponse>> {
+impl<T: StorageProcessor + Clone> Client for DirectClient<T> {
+    async fn get_data(&self) -> IndexerResult<Option<Transaction>> {
         self.base.get_data().await
     }
 
@@ -30,5 +48,14 @@ impl<T: StorageProcessor> Client for DirectClient<T> {
 
     async fn update_delta(&mut self, result: TransactionDelta) -> IndexerResult<()> {
         self.base.update_delta(result).await
+    }
+}
+
+impl<T: StorageProcessor + Clone> DirectClient<T> {
+    pub fn rx(&self) -> Receiver<Transaction> {
+        self.base.rx.clone()
+    }
+    pub fn get(&self) -> Vec<u8> {
+        self.base.get()
     }
 }
