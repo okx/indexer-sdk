@@ -7,7 +7,6 @@ use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
 use crate::types::response::GetDataResponse;
 use bitcoincore_rpc::bitcoin::Transaction;
-use crossbeam::channel::Receiver;
 
 #[derive(Clone)]
 pub struct DirectClient<T: StorageProcessor + Clone> {
@@ -52,7 +51,7 @@ impl<T: StorageProcessor + Clone> Client for DirectClient<T> {
 }
 
 impl<T: StorageProcessor + Clone> DirectClient<T> {
-    pub fn rx(&self) -> Receiver<Transaction> {
+    pub fn rx(&self) -> async_channel::Receiver<Transaction> {
         self.base.rx.clone()
     }
     pub fn get(&self) -> Vec<u8> {

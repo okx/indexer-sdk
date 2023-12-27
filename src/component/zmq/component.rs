@@ -104,8 +104,8 @@ impl ZeroMQNode {
             // for topic in &node.config.mq.zmq_topic {
             //     socket.subscribe(topic).await.unwrap();
             // }
-            // socket.subscribe("rawtx").await.unwrap();
             socket.subscribe("sequence").await.unwrap();
+            socket.subscribe("rawtx").await.unwrap();
             loop {
                 tokio::select! {
                         event=socket.recv()=>{

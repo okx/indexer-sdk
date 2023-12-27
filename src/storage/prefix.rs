@@ -39,7 +39,7 @@ impl KeyPrefix {
             KeyPrefix::TransactionDelta => b"td",
             KeyPrefix::AddressTokenBalance => b"atb",
             KeyPrefix::TransactionIndexMap => b"tim",
-            KeyPrefix::SeenTx => b"s",
+            KeyPrefix::SeenTx => b"seen",
         }
     }
     pub fn get_suffix<'a>(&self, key: &'a [u8]) -> &'a [u8] {

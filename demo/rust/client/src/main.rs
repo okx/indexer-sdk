@@ -53,7 +53,7 @@ pub async fn main() {
 
 #[derive(Clone)]
 pub struct MockDispatcher {
-    rx: crossbeam::channel::Receiver<Transaction>,
+    rx: async_channel::Receiver<Transaction>,
     tx: async_channel::Sender<Transaction>,
 }
 
@@ -96,10 +96,10 @@ impl<T: StorageProcessor + Clone + 'static> Executor<T> {
             }
             let ctx = ctx_res.unwrap();
 
-            self.client
-                .update_delta(ctx.delta.clone())
-                .await
-                .expect("unreachable");
+            // self.client
+            //     .update_delta(ctx.delta.clone())
+            //     .await
+            //     .expect("unreachable");
         }
     }
     pub async fn execute(&self, tx: &Transaction) -> Result<TraceContext, anyhow::Error> {
@@ -120,7 +120,7 @@ impl MockDispatcher {
         let tx = self.tx.clone();
         Ok(tokio::spawn(async move {
             loop {
-                let data = rx.recv();
+                let data = rx.recv().await;
                 if let Err(e) = data {
                     error!("recv error:{:?}", e);
                     sleep(Duration::from_secs(1)).await;
@@ -131,7 +131,7 @@ impl MockDispatcher {
         }))
     }
     pub fn new(
-        rx: crossbeam::channel::Receiver<Transaction>,
+        rx: async_channel::Receiver<Transaction>,
         tx: async_channel::Sender<Transaction>,
     ) -> Self {
         Self { rx, tx }

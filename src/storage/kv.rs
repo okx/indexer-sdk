@@ -6,7 +6,7 @@ use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
 use bitcoincore_rpc::bitcoin::Transaction;
 use chrono::Local;
-use log::info;
+use log::{error, info};
 use rusty_leveldb::WriteBatch;
 use serde::{Deserialize, Serialize};
 
@@ -61,6 +61,7 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         self.wrap_update_state(&mut batch, next_state);
         // build user utxo
         self.wrap_address_utxo(&mut batch, transaction, true)?;
+        self.wrap_seen_txs(&mut batch, &transaction.tx_id, SeenStatus::Executed)?;
 
         self.db.write_batch(batch, true)?;
         Ok(())
@@ -231,6 +232,26 @@ impl<T: DB + Send + Sync + Clone> KVStorageProcessor<T> {
                 batch.put(key.as_slice(), value.as_slice());
             }
         }
+        Ok(())
+    }
+    pub(crate) fn wrap_seen_txs(
+        &mut self,
+        write_batch: &mut WriteBatch,
+        tx_id: &TxIdType,
+        status: SeenStatus,
+    ) -> IndexerResult<()> {
+        let key = KeyPrefix::build_seen_tx_key(tx_id);
+        let ret = self.db.get(key.as_slice())?;
+        if ret.is_none() {
+            error!(
+                "wrap_seen_txs tx_id:{:?} not found,this should not happen",
+                tx_id
+            );
+            return Ok(());
+        }
+        let mut data = ret.unwrap();
+        data.insert(data.len() - 1, status.to_u8());
+        write_batch.put(key.as_slice(), data.as_slice());
         Ok(())
     }
     pub(crate) fn rm_seen_record(&mut self, batch: &mut WriteBatch, tx_id: &TxIdType) {

@@ -37,7 +37,7 @@ pub async fn async_create_and_start_processor(
     let processor = KVStorageProcessor::new(db);
     let client = create_client_from_configuration(origin_cfg.clone());
 
-    let (notify_tx, notify_rx) = crossbeam::channel::unbounded();
+    let (notify_tx, notify_rx) = async_channel::unbounded();
 
     let mut processor_wrapper = ComponentTemplate::new(IndexerProcessorImpl::new(
         notify_tx.clone(),

@@ -17,7 +17,7 @@ use std::time::Duration;
 
 #[derive(Clone)]
 pub struct IndexerProcessorImpl<T: StorageProcessor> {
-    tx: crossbeam::channel::Sender<Transaction>,
+    tx: async_channel::Sender<Transaction>,
     storage: T,
     btc_client: Arc<bitcoincore_rpc::Client>,
 
@@ -30,7 +30,7 @@ unsafe impl<T: StorageProcessor> Sync for IndexerProcessorImpl<T> {}
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     pub fn new(
-        tx: crossbeam::channel::Sender<Transaction>,
+        tx: async_channel::Sender<Transaction>,
         storage: T,
         client: bitcoincore_rpc::Client,
         flag: Arc<AtomicBool>,
@@ -160,8 +160,8 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 info!("tx_id:{:?} has been seen", tx_id);
                 return Ok(());
             }
-            info!("tx_id:{:?} has not been seen,start to execute", tx_id);
-            self.tx.send(tx).unwrap();
+            info!("tx_id:{:?} has not been executed,start to dispatch", tx_id);
+            self.tx.send(tx).await.unwrap();
         }
         Ok(())
     }

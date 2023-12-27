@@ -258,7 +258,6 @@ dependencies = [
  "anyhow",
  "async-channel",
  "bitcoincore-rpc",
- "crossbeam",
  "env_logger",
  "indexer-sdk",
  "log",

@@ -70,9 +70,9 @@ impl DB for LevelDB {
             }
         }
         loop {
-            if !iter.valid() {
-                return Ok(ret);
-            }
+            // if !iter.valid() {
+            //     return Ok(ret);
+            // }
             let next = iter.next();
             if next.is_none() {
                 return Ok(ret);
@@ -81,7 +81,6 @@ impl DB for LevelDB {
             if !k.starts_with(prefix) {
                 return Ok(ret);
             }
-            println!("k:{:?},v:{:?}", k, v);
             let key = kf(k);
             let value = vf(v);
             if value.is_some() {

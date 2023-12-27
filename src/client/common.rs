@@ -11,14 +11,14 @@ use log::info;
 #[repr(C)]
 #[derive(Clone)]
 pub struct CommonClient {
-    pub(crate) rx: Receiver<Transaction>,
+    pub(crate) rx: async_channel::Receiver<Transaction>,
     pub(crate) tx: async_channel::Sender<IndexerEvent>,
 }
 
 impl Default for CommonClient {
     fn default() -> Self {
         let (tx, _) = async_channel::unbounded();
-        let (_, rx) = crossbeam::channel::unbounded();
+        let (_, rx) = async_channel::unbounded();
         Self { rx, tx }
     }
 }
@@ -49,7 +49,10 @@ impl Client for CommonClient {
 }
 
 impl CommonClient {
-    pub fn new(rx: Receiver<Transaction>, tx: async_channel::Sender<IndexerEvent>) -> Self {
+    pub fn new(
+        rx: async_channel::Receiver<Transaction>,
+        tx: async_channel::Sender<IndexerEvent>,
+    ) -> Self {
         Self { rx, tx }
     }
 
@@ -78,15 +81,7 @@ impl CommonClient {
                 info!("get data from channel");
                 Ok(Some(ret))
             }
-            Err(v) => {
-                match v {
-                    TryRecvError::Empty => {
-                        return Ok(None);
-                    }
-                    TryRecvError::Disconnected => {}
-                }
-                Ok(None)
-            }
+            Err(v) => Ok(None),
         };
     }
 
