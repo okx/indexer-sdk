@@ -8,7 +8,7 @@ use std::str::FromStr;
 #[derive(Clone)]
 pub enum IndexerEvent {
     NewTxComing(Vec<u8>, u32),
-    NewTxComingByTxId(TxIdType),
+    TxFromRestoreByTxId(TxIdType),
 
     // RawBlockComing(Block, u32),
     GetBalance(AddressType, crossbeam::channel::Sender<BalanceType>),
@@ -38,8 +38,8 @@ impl Debug for IndexerEvent {
             // IndexerEvent::RawBlockComing(_, _) => {
             //     write!(f, "RawBlockComing")
             // }
-            IndexerEvent::NewTxComingByTxId(_) => {
-                write!(f, "NewTxComingByTxId")
+            IndexerEvent::TxFromRestoreByTxId(v) => {
+                write!(f, "TxFromRestoreByTxId:{:?}", v)
             }
             IndexerEvent::TxRemoved(v) => {
                 write!(f, "TxRemoved: {}", v.0)

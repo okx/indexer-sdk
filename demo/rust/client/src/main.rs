@@ -86,6 +86,7 @@ impl<T: StorageProcessor + Clone + 'static> Executor<T> {
             if let Err(e) = data {
                 error!("recv error:{:?}", e);
                 sleep(Duration::from_secs(1)).await;
+                continue;
             }
             let tx = data.unwrap();
             let ctx_res = self.execute(&tx).await;
@@ -96,10 +97,10 @@ impl<T: StorageProcessor + Clone + 'static> Executor<T> {
             }
             let ctx = ctx_res.unwrap();
 
-            // self.client
-            //     .update_delta(ctx.delta.clone())
-            //     .await
-            //     .expect("unreachable");
+            self.client
+                .update_delta(ctx.delta.clone())
+                .await
+                .expect("unreachable");
         }
     }
     pub async fn execute(&self, tx: &Transaction) -> Result<TraceContext, anyhow::Error> {
@@ -124,6 +125,7 @@ impl MockDispatcher {
                 if let Err(e) = data {
                     error!("recv error:{:?}", e);
                     sleep(Duration::from_secs(1)).await;
+                    continue;
                 }
                 let transaction = data.unwrap();
                 tx.send(transaction).await.expect("unreachable")

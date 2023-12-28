@@ -35,11 +35,11 @@ impl DeltaStatus {
 impl KeyPrefix {
     pub fn get_prefix(&self) -> &[u8] {
         match self {
-            KeyPrefix::State => b"state",
-            KeyPrefix::TransactionDelta => b"td",
-            KeyPrefix::AddressTokenBalance => b"atb",
-            KeyPrefix::TransactionIndexMap => b"tim",
-            KeyPrefix::SeenTx => b"seen",
+            KeyPrefix::State => b"a",
+            KeyPrefix::TransactionDelta => b"b",
+            KeyPrefix::AddressTokenBalance => b"c",
+            KeyPrefix::TransactionIndexMap => b"d",
+            KeyPrefix::SeenTx => b"e",
         }
     }
     pub fn get_suffix<'a>(&self, key: &'a [u8]) -> &'a [u8] {
@@ -83,16 +83,24 @@ impl KeyPrefix {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum SeenStatus {
     UnExecuted,
     Executed,
 }
+pub const SEEN_DATA_STATUS_INDEX: usize = 8;
 impl SeenStatus {
     pub fn to_u8(&self) -> u8 {
         match self {
             SeenStatus::UnExecuted => 0,
             SeenStatus::Executed => 1,
+        }
+    }
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            0 => SeenStatus::UnExecuted,
+            1 => SeenStatus::Executed,
+            _ => panic!("invalid seen status"),
         }
     }
 }

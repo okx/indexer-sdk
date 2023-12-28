@@ -115,12 +115,8 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         };
 
         for (tx_id, _) in txs {
-            info!("get tx from mempool:{:?}", &tx_id);
-            if self.storage.seen_tx(tx_id.clone()).await? {
-                info!("do_handle_sync_mempool tx_id:{:?} has been seen", &tx_id);
-                return Ok(());
-            }
-            tx.send(IndexerEvent::NewTxComingByTxId(tx_id))
+            info!("get tx from mempool or db:{:?}", &tx_id);
+            tx.send(IndexerEvent::TxFromRestoreByTxId(tx_id))
                 .await
                 .unwrap();
         }
@@ -132,7 +128,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         info!("do_handle_event,event:{:?}", event);
         match event {
             IndexerEvent::NewTxComing(data, sequence) => {
-                self.do_handle_new_tx_coming(data).await?;
+                self.do_handle_new_tx_coming(data, false).await?;
             }
             IndexerEvent::GetBalance(address, tx) => {
                 self.do_handle_get_balance(address, tx).await?;
@@ -144,8 +140,8 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 self.do_handle_tx_confirmed(tx_id, DeltaStatus::Confirmed)
                     .await?;
             }
-            IndexerEvent::NewTxComingByTxId(tx_id) => {
-                self.do_handle_new_tx_coming_by_tx_id(tx_id).await?;
+            IndexerEvent::TxFromRestoreByTxId(tx_id) => {
+                self.do_handle_restore_tx_by_tx_id(tx_id).await?;
             }
             IndexerEvent::TxRemoved(tx_id) => {
                 self.do_handle_tx_removed(tx_id).await?;
@@ -153,14 +149,34 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         }
         Ok(())
     }
-    pub(crate) async fn do_handle_new_tx_coming(&mut self, data: &Vec<u8>) -> IndexerResult<()> {
+
+    // force_dispatch:true: data from restore
+    pub(crate) async fn do_handle_new_tx_coming(
+        &mut self,
+        data: &Vec<u8>,
+        from_restore: bool,
+    ) -> IndexerResult<()> {
         let data = self.parse_zmq_data(&data);
         if let Some((tx_id, tx)) = data {
-            if self.storage.seen_and_store_txs(&tx).await? {
-                info!("tx_id:{:?} has been seen", tx_id);
-                return Ok(());
+            let seen = self.storage.seen_and_store_txs(&tx).await?;
+            if seen.is_seen() {
+                if from_restore {
+                    if seen.is_executed() {
+                        info!("tx_id:{:?} is seen and  has been executed,skip", tx_id);
+                        return Ok(());
+                    } else {
+                        info!(
+                            "tx_id:{:?} from restore  is seen but  has not been executed,start to dispatch",
+                            tx_id
+                        );
+                    }
+                } else {
+                    info!("tx_id:{:?} has been seen,skip", tx_id);
+                    return Ok(());
+                }
+            } else {
+                info!("tx_id:{:?} has not been executed,start to dispatch", tx_id);
             }
-            info!("tx_id:{:?} has not been executed,start to dispatch", tx_id);
             self.tx.send(tx).await.unwrap();
         }
         Ok(())
@@ -190,12 +206,12 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         self.storage.remove_transaction_delta(tx_id, status).await?;
         Ok(())
     }
-    async fn do_handle_new_tx_coming_by_tx_id(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
+    async fn do_handle_restore_tx_by_tx_id(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
         let txid: Txid = tx_id.clone().into();
-        info!("do_handle_new_tx_coming_by_tx_id,txid:{:?}", txid);
+        info!("do_handle_force_tx_by_tx_id,txid:{:?}", txid);
         let transaction = self.btc_client.get_raw_transaction(&txid, None)?;
         let data = serialize(&transaction);
-        self.do_handle_new_tx_coming(&data).await?;
+        self.do_handle_new_tx_coming(&data, true).await?;
 
         Ok(())
     }

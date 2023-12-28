@@ -1,10 +1,11 @@
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
-use crate::storage::prefix::DeltaStatus;
-use crate::storage::StorageProcessor;
+use crate::storage::prefix::{DeltaStatus, SeenStatus};
+use crate::storage::{SeenStatusResponse, StorageProcessor};
 use crate::types::delta::TransactionDelta;
 use bitcoincore_rpc::bitcoin::Transaction;
 use log::debug;
+use std::collections::HashMap;
 use tokio::sync::RwLock;
 
 pub struct ThreadSafeStorageProcessor<T: StorageProcessor> {
@@ -54,23 +55,30 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
         Ok(())
     }
 
-    async fn seen_and_store_txs(&mut self, tx: &Transaction) -> IndexerResult<bool> {
+    async fn seen_and_store_txs(&mut self, tx: &Transaction) -> IndexerResult<SeenStatusResponse> {
         let write = self.rw_lock.write().await;
         let ret = self.internal.seen_and_store_txs(tx).await?;
         drop(write);
         Ok(ret)
     }
 
-    async fn seen_tx(&mut self, tx_id: TxIdType) -> IndexerResult<bool> {
+    async fn seen_tx(&mut self, tx_id: TxIdType) -> IndexerResult<SeenStatusResponse> {
         let count = self.rw_lock.read().await;
         let ret = self.internal.seen_tx(tx_id).await?;
         drop(count);
         Ok(ret)
     }
 
-    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<Vec<(TxIdType, i64)>> {
+    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<HashMap<TxIdType, i64>> {
         let read = self.rw_lock.write().await;
         let ret = self.internal.get_all_un_consumed_txs().await;
+        drop(read);
+        ret
+    }
+
+    async fn is_tx_executed(&mut self, tx_id: &TxIdType) -> IndexerResult<bool> {
+        let read = self.rw_lock.write().await;
+        let ret = self.internal.is_tx_executed(tx_id).await;
         drop(read);
         ret
     }

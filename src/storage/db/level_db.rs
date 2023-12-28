@@ -31,6 +31,7 @@ impl DB for LevelDB {
     fn set(&mut self, key: &[u8], value: &[u8]) -> IndexerResult<()> {
         let mut db = self.db.borrow_mut();
         db.put(key, value)?;
+        db.flush()?;
         Ok(())
     }
 
@@ -42,6 +43,7 @@ impl DB for LevelDB {
     fn write_batch(&mut self, batch: WriteBatch, sync: bool) -> IndexerResult<()> {
         let mut db = self.db.borrow_mut();
         db.write(batch, sync)?;
+        db.flush()?;
         Ok(())
     }
 
@@ -70,9 +72,9 @@ impl DB for LevelDB {
             }
         }
         loop {
-            // if !iter.valid() {
-            //     return Ok(ret);
-            // }
+            if !iter.valid() {
+                return Ok(ret);
+            }
             let next = iter.next();
             if next.is_none() {
                 return Ok(ret);

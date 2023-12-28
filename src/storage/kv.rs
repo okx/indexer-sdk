@@ -1,14 +1,16 @@
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
 use crate::storage::db::DB;
+use crate::storage::prefix::SEEN_DATA_STATUS_INDEX;
 use crate::storage::prefix::{DeltaStatus, KeyPrefix, SeenStatus};
-use crate::storage::StorageProcessor;
+use crate::storage::{SeenStatusResponse, StorageProcessor};
 use crate::types::delta::TransactionDelta;
 use bitcoincore_rpc::bitcoin::Transaction;
 use chrono::Local;
 use log::{error, info};
 use rusty_leveldb::WriteBatch;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 const MAX_DELAY: i64 = 60 * 60 * 24 * 5; // five days
 
@@ -49,6 +51,9 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
             &transaction.tx_id, transaction
         );
         if transaction.deltas.is_empty() {
+            let mut batch = WriteBatch::new();
+            self.wrap_seen_txs(&mut batch, &transaction.tx_id, SeenStatus::Executed)?;
+            self.db.write_batch(batch, true)?;
             return Ok(());
         }
         let mut batch = WriteBatch::new();
@@ -92,11 +97,11 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         Ok(())
     }
 
-    async fn seen_and_store_txs(&mut self, tx: &Transaction) -> IndexerResult<bool> {
+    async fn seen_and_store_txs(&mut self, tx: &Transaction) -> IndexerResult<SeenStatusResponse> {
         let tx_id: TxIdType = tx.txid().into();
-        let ret = self.seen_tx(tx_id.clone()).await?;
-        if ret {
-            return Ok(true);
+        let seen_status = self.seen_tx(tx_id.clone()).await?;
+        if seen_status.is_seen() {
+            return Ok(seen_status);
         }
         let key = KeyPrefix::build_seen_tx_key(&tx_id);
         let dt = Local::now();
@@ -104,17 +109,32 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         let mut data = ts.to_le_bytes().to_vec();
         data.extend_from_slice(SeenStatus::UnExecuted.to_u8().to_le_bytes().as_slice());
         info!("tx_id:{:?} is not seen,store it", tx_id);
-        self.db.set(key.as_slice(), ts.to_le_bytes().as_slice())?;
-        return Ok(false);
+        self.db.set(key.as_slice(), data.as_slice())?;
+        let vv = self.db.get(key.as_slice())?;
+        return Ok(SeenStatusResponse {
+            seen: false,
+            status: SeenStatus::UnExecuted,
+        });
     }
 
-    async fn seen_tx(&mut self, tx_id: TxIdType) -> IndexerResult<bool> {
+    async fn seen_tx(&mut self, tx_id: TxIdType) -> IndexerResult<SeenStatusResponse> {
         let key = KeyPrefix::build_seen_tx_key(&tx_id);
         let ret = self.db.get(key.as_slice())?;
-        Ok(ret.is_some())
+        if ret.is_none() {
+            return Ok(SeenStatusResponse {
+                seen: false,
+                status: SeenStatus::UnExecuted,
+            });
+        }
+        let ret = ret.unwrap();
+        let last = ret[ret.len() - 1];
+        Ok(SeenStatusResponse {
+            seen: true,
+            status: SeenStatus::from_u8(last),
+        })
     }
 
-    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<Vec<(TxIdType, i64)>> {
+    async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<HashMap<TxIdType, i64>> {
         let now = Local::now().timestamp();
         let iter = self.db.iter_all(
             KeyPrefix::SeenTx.get_prefix(),
@@ -131,11 +151,16 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
                 Some(ts)
             },
         )?;
-        let txs: Vec<(TxIdType, i64)> = iter
+        let txs: HashMap<TxIdType, i64> = iter
             .into_iter()
             .map(|(k, ts)| (KeyPrefix::get_tx_id_from_seen_key(k.as_slice()), ts))
             .collect();
         Ok(txs)
+    }
+
+    async fn is_tx_executed(&mut self, tx_id: &TxIdType) -> IndexerResult<bool> {
+        let resp = self.seen_tx(tx_id.clone()).await?;
+        Ok(resp.is_executed())
     }
 }
 
@@ -250,7 +275,7 @@ impl<T: DB + Send + Sync + Clone> KVStorageProcessor<T> {
             return Ok(());
         }
         let mut data = ret.unwrap();
-        data.insert(data.len() - 1, status.to_u8());
+        data[SEEN_DATA_STATUS_INDEX] = status.to_u8();
         write_batch.put(key.as_slice(), data.as_slice());
         Ok(())
     }
