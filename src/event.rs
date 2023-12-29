@@ -18,6 +18,8 @@ pub enum IndexerEvent {
     TxRemoved(TxIdType),
 
     TxConfirmed(TxIdType),
+
+    ReportHeight(u32),
 }
 
 impl Debug for IndexerEvent {
@@ -43,6 +45,9 @@ impl Debug for IndexerEvent {
             }
             IndexerEvent::TxRemoved(v) => {
                 write!(f, "TxRemoved: {}", v.0)
+            }
+            IndexerEvent::ReportHeight(v) => {
+                write!(f, "ReportHeight: {}", v)
             }
         }
     }

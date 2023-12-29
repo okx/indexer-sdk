@@ -1,4 +1,5 @@
 use crate::client::common::CommonClient;
+use crate::client::event::ClientEvent;
 use crate::client::Client;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType};
@@ -29,8 +30,8 @@ impl<T: StorageProcessor + Clone> DirectClient<T> {
 
 #[async_trait::async_trait]
 impl<T: StorageProcessor + Clone> Client for DirectClient<T> {
-    async fn get_data(&self) -> IndexerResult<Option<Transaction>> {
-        self.base.get_data().await
+    async fn get_event(&self) -> IndexerResult<Option<ClientEvent>> {
+        self.base.get_event().await
     }
 
     async fn push_data(&self, data: Vec<u8>) -> IndexerResult<()> {
@@ -48,12 +49,16 @@ impl<T: StorageProcessor + Clone> Client for DirectClient<T> {
     async fn update_delta(&mut self, result: TransactionDelta) -> IndexerResult<()> {
         self.base.update_delta(result).await
     }
+    fn rx(&self) -> async_channel::Receiver<ClientEvent> {
+        self.base.rx()
+    }
+
+    async fn report_height(&self, height: u32) -> IndexerResult<()> {
+        self.base.report_height(height).await
+    }
 }
 
 impl<T: StorageProcessor + Clone> DirectClient<T> {
-    pub fn rx(&self) -> async_channel::Receiver<Transaction> {
-        self.base.rx.clone()
-    }
     pub fn get(&self) -> Vec<u8> {
         self.base.get()
     }

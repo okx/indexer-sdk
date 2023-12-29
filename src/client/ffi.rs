@@ -62,3 +62,9 @@ pub extern "C" fn get_data() -> ByteArray {
         length: binding.len(),
     }
 }
+
+#[no_mangle]
+pub extern "C" fn push_data(data: *const u8, len: usize) {
+    let bytes = unsafe { std::slice::from_raw_parts(data, len) };
+    println!("Received bytes: {:?}", bytes);
+}

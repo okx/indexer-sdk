@@ -1,3 +1,4 @@
+use crate::client::event::ClientEvent;
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
@@ -14,14 +15,16 @@ use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
 use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
+use wg::AsyncWaitGroup;
 
 #[derive(Clone)]
 pub struct IndexerProcessorImpl<T: StorageProcessor> {
-    tx: async_channel::Sender<Transaction>,
+    tx: async_channel::Sender<ClientEvent>,
     storage: T,
     btc_client: Arc<bitcoincore_rpc::Client>,
 
     flag: Arc<AtomicBool>,
+    wg: AsyncWaitGroup,
 }
 
 unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
@@ -30,16 +33,18 @@ unsafe impl<T: StorageProcessor> Sync for IndexerProcessorImpl<T> {}
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     pub fn new(
-        tx: async_channel::Sender<Transaction>,
+        wg: AsyncWaitGroup,
+        tx: async_channel::Sender<ClientEvent>,
         storage: T,
-        client: bitcoincore_rpc::Client,
+        client: Arc<bitcoincore_rpc::Client>,
         flag: Arc<AtomicBool>,
     ) -> Self {
         Self {
             tx,
             storage,
-            btc_client: Arc::new(client),
+            btc_client: client,
             flag,
+            wg,
         }
     }
 }
@@ -50,6 +55,7 @@ impl<T: StorageProcessor> HookComponent for IndexerProcessorImpl<T> {
         &mut self,
         sender: async_channel::Sender<IndexerEvent>,
     ) -> IndexerResult<()> {
+        self.wg.wait().await;
         self.restore_from_mempool(sender).await?;
         Ok(())
     }
@@ -146,6 +152,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             IndexerEvent::TxRemoved(tx_id) => {
                 self.do_handle_tx_removed(tx_id).await?;
             }
+            IndexerEvent::ReportHeight(_) => {}
         }
         Ok(())
     }
@@ -177,7 +184,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             } else {
                 info!("tx_id:{:?} has not been executed,start to dispatch", tx_id);
             }
-            self.tx.send(tx).await.unwrap();
+            self.tx.send(ClientEvent::Transaction(tx)).await.unwrap();
         }
         Ok(())
     }

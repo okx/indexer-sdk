@@ -1,6 +1,7 @@
 use bitcoincore_rpc::bitcoin::Transaction;
 use log::{error, info};
 use mylibrary::client::drect::DirectClient;
+use mylibrary::client::event::ClientEvent;
 use mylibrary::client::Client;
 use mylibrary::configuration::base::{IndexerConfiguration, NetConfiguration, ZMQConfiguration};
 use mylibrary::event::TxIdType;
@@ -53,19 +54,24 @@ pub async fn main() {
 
 #[derive(Clone)]
 pub struct MockDispatcher {
-    rx: async_channel::Receiver<Transaction>,
-    tx: async_channel::Sender<Transaction>,
+    rx: async_channel::Receiver<ClientEvent>,
+    tx: async_channel::Sender<ClientEvent>,
 }
 
 #[derive(Clone)]
 pub struct Executor<T: StorageProcessor + Clone + 'static> {
-    rx: async_channel::Receiver<Transaction>,
+    rx: async_channel::Receiver<ClientEvent>,
     client: DirectClient<T>,
+    height: u32,
 }
 
 impl<T: StorageProcessor + Clone + 'static> Executor<T> {
-    pub fn new(rx: async_channel::Receiver<Transaction>, client: DirectClient<T>) -> Self {
-        Self { rx, client }
+    pub fn new(rx: async_channel::Receiver<ClientEvent>, client: DirectClient<T>) -> Self {
+        Self {
+            rx,
+            client,
+            height: 0,
+        }
     }
 }
 
@@ -88,31 +94,48 @@ impl<T: StorageProcessor + Clone + 'static> Executor<T> {
                 sleep(Duration::from_secs(1)).await;
                 continue;
             }
-            let tx = data.unwrap();
-            let ctx_res = self.execute(&tx).await;
+            let event = data.unwrap();
+            let ctx_res = self.execute(&event).await;
             if let Err(e) = ctx_res {
                 error!("execute error:{:?}", e);
                 sleep(Duration::from_secs(1)).await;
                 continue;
             }
             let ctx = ctx_res.unwrap();
-
-            self.client
-                .update_delta(ctx.delta.clone())
-                .await
-                .expect("unreachable");
+            if let Some(ctx) = ctx {
+                self.client
+                    .update_delta(ctx.delta.clone())
+                    .await
+                    .expect("unreachable");
+            }
         }
     }
-    pub async fn execute(&self, tx: &Transaction) -> Result<TraceContext, anyhow::Error> {
-        let tx_id: TxIdType = tx.txid().into();
-        info!("start to execut transaction:{:?}", &tx_id);
+    pub async fn execute(
+        &mut self,
+        tx: &ClientEvent,
+    ) -> Result<Option<TraceContext>, anyhow::Error> {
+        match tx {
+            ClientEvent::Transaction(tx) => {
+                let tx_id: TxIdType = tx.txid().into();
+                info!("start to execut transaction:{:?}", &tx_id);
 
-        Ok(TraceContext {
-            delta: TransactionDelta {
-                tx_id,
-                deltas: Default::default(),
-            },
-        })
+                Ok(Some(TraceContext {
+                    delta: TransactionDelta {
+                        tx_id,
+                        deltas: Default::default(),
+                    },
+                }))
+            }
+            ClientEvent::GetHeight => {
+                self.height = self.height + 50;
+                self.client.report_height(self.height).await.unwrap();
+                Ok(None)
+            }
+            _ => {
+                info!("ignore event");
+                Ok(None)
+            }
+        }
     }
 }
 impl MockDispatcher {
@@ -133,8 +156,8 @@ impl MockDispatcher {
         }))
     }
     pub fn new(
-        rx: async_channel::Receiver<Transaction>,
-        tx: async_channel::Sender<Transaction>,
+        rx: async_channel::Receiver<ClientEvent>,
+        tx: async_channel::Sender<ClientEvent>,
     ) -> Self {
         Self { rx, tx }
     }

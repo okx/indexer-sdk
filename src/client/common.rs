@@ -1,3 +1,4 @@
+use crate::client::event::ClientEvent;
 use crate::client::Client;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
@@ -11,7 +12,7 @@ use log::info;
 #[repr(C)]
 #[derive(Clone)]
 pub struct CommonClient {
-    pub(crate) rx: async_channel::Receiver<Transaction>,
+    pub(crate) rx: async_channel::Receiver<ClientEvent>,
     pub(crate) tx: async_channel::Sender<IndexerEvent>,
 }
 
@@ -25,7 +26,7 @@ impl Default for CommonClient {
 
 #[async_trait::async_trait]
 impl Client for CommonClient {
-    async fn get_data(&self) -> IndexerResult<Option<Transaction>> {
+    async fn get_event(&self) -> IndexerResult<Option<ClientEvent>> {
         self.do_get_data()
     }
 
@@ -46,11 +47,21 @@ impl Client for CommonClient {
     async fn update_delta(&mut self, result: TransactionDelta) -> IndexerResult<()> {
         self.do_update_delta(result)
     }
+    fn rx(&self) -> async_channel::Receiver<ClientEvent> {
+        self.rx.clone()
+    }
+
+    async fn report_height(&self, height: u32) -> IndexerResult<()> {
+        self.tx
+            .send_blocking(IndexerEvent::ReportHeight(height))
+            .unwrap();
+        Ok(())
+    }
 }
 
 impl CommonClient {
     pub fn new(
-        rx: async_channel::Receiver<Transaction>,
+        rx: async_channel::Receiver<ClientEvent>,
         tx: async_channel::Sender<IndexerEvent>,
     ) -> Self {
         Self { rx, tx }
@@ -74,7 +85,7 @@ impl CommonClient {
             .unwrap();
         Ok(())
     }
-    fn do_get_data(&self) -> IndexerResult<Option<Transaction>> {
+    fn do_get_data(&self) -> IndexerResult<Option<ClientEvent>> {
         let res = self.rx.try_recv();
         return match res {
             Ok(ret) => {
@@ -91,7 +102,7 @@ impl CommonClient {
             return vec![];
         }
         let data = data.unwrap();
-        let raw_data = serialize(&data);
+        let raw_data = data.to_bytes();
         raw_data
     }
 }

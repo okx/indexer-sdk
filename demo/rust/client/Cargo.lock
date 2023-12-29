@@ -89,6 +89,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "atomic-waker"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -658,6 +664,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
+ "wg",
  "zeromq",
 ]
 
@@ -1434,6 +1441,15 @@ name = "wasm-bindgen-shared"
 version = "0.2.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ab9b36309365056cd639da3134bf87fa8f3d86008abf99e612384a6eecd459f"
+
+[[package]]
+name = "wg"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "232b936590098c53587078a25ed087d5cd3aa18ec65c85bb42c6ae335263e15b"
+dependencies = [
+ "atomic-waker",
+]
 
 [[package]]
 name = "winapi"

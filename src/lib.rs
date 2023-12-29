@@ -78,6 +78,9 @@ impl<T: HookComponent<Event = E> + Clone, E: Send + Sync + Clone> ComponentTempl
             _marker: Default::default(),
         }
     }
+    pub fn grap_rx(&self) -> async_channel::Receiver<E> {
+        self.rx.clone()
+    }
 }
 
 #[async_trait::async_trait]

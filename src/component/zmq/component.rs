@@ -16,6 +16,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
 use tokio::task::JoinHandle;
+use wg::AsyncWaitGroup;
 use zeromq::SocketRecv;
 use zeromq::{Socket, ZmqMessage};
 
@@ -24,6 +25,7 @@ pub struct ZeroMQComponent {
     config: IndexerConfiguration,
     sender: async_channel::Sender<IndexerEvent>,
     flag: Arc<AtomicBool>,
+    wg: AsyncWaitGroup,
 }
 
 #[async_trait::async_trait]
@@ -51,13 +53,14 @@ impl Component for ZeroMQComponent {
     async fn start(&mut self, exit: Receiver<()>) -> IndexerResult<Vec<JoinHandle<()>>> {
         let mut ret = vec![];
         let node = ZeroMQNode::new(self.config.clone(), self.sender.clone(), self.flag.clone());
-        ret.push(node.start(exit.clone()).await);
+        ret.push(node.start(exit.clone(), self.wg.clone()).await);
         Ok(ret)
     }
 }
 
 impl ZeroMQComponent {
     pub fn new(
+        mq_wg: AsyncWaitGroup,
         config: IndexerConfiguration,
         sender: async_channel::Sender<IndexerEvent>,
         flag: Arc<AtomicBool>,
@@ -66,6 +69,7 @@ impl ZeroMQComponent {
             config,
             sender,
             flag,
+            wg: mq_wg,
         }
     }
 }
@@ -92,7 +96,7 @@ impl ZeroMQNode {
             client: Arc::new(client),
         }
     }
-    async fn start(&self, exit: Receiver<()>) -> JoinHandle<()> {
+    async fn start(&self, exit: Receiver<()>, wg: AsyncWaitGroup) -> JoinHandle<()> {
         let node = self.clone();
         let flag = self.flag.clone();
         tokio::task::spawn(async move {
@@ -106,6 +110,7 @@ impl ZeroMQNode {
             // }
             socket.subscribe("sequence").await.unwrap();
             socket.subscribe("rawtx").await.unwrap();
+            wg.done();
             loop {
                 tokio::select! {
                         event=socket.recv()=>{
