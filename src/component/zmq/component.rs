@@ -41,10 +41,6 @@ impl Component for ZeroMQComponent {
         unreachable!()
     }
 
-    fn interval(&self) -> Duration {
-        Duration::from_secs(300)
-    }
-
     async fn init(&mut self, cfg: Self::Configuration) -> IndexerResult<()> {
         self.config = cfg.clone();
         Ok(())

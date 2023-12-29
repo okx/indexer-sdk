@@ -33,7 +33,6 @@ pub trait Component: Send + Sync {
     type Inner: Component<Event = Self::Event>;
 
     fn inner(&mut self) -> &mut Self::Inner;
-    fn interval(&self) -> Duration;
 
     async fn init(&mut self, _cfg: Self::Configuration) -> IndexerResult<()> {
         Ok(())
@@ -49,9 +48,6 @@ pub trait Component: Send + Sync {
 
     fn event_tx(&mut self) -> IndexerResult<Sender<Self::Event>> {
         self.inner().event_tx()
-    }
-    async fn handle_tick_event(&mut self) -> IndexerResult<()> {
-        Ok(())
     }
 
     async fn handle_event(&mut self, event: &Self::Event) -> IndexerResult<()> {
@@ -89,10 +85,6 @@ impl<T: HookComponent<Event = E> + Clone + 'static, E: Send + Sync + Clone + 'st
 {
     type Event = E;
 
-    fn interval(&self) -> Duration {
-        self.internal.interval()
-    }
-
     type Inner = T;
 
     type Configuration = T::Configuration;
@@ -118,10 +110,6 @@ impl<T: HookComponent<Event = E> + Clone + 'static, E: Send + Sync + Clone + 'st
         ret.push(task);
         Ok(ret)
     }
-
-    async fn handle_tick_event(&mut self) -> IndexerResult<()> {
-        self.internal.handle_tick_event().await
-    }
 }
 
 #[async_trait::async_trait]
@@ -129,35 +117,77 @@ pub trait HookComponent: Component {
     async fn before_start(&mut self, sender: Sender<Self::Event>) -> IndexerResult<()> {
         Ok(())
     }
+
+    fn interval(&self) -> Option<Duration> {
+        None
+    }
+
+    async fn handle_tick_event(&mut self) -> IndexerResult<()> {
+        Ok(())
+    }
 }
 
+#[async_trait::async_trait]
+impl<T: HookComponent<Event = E> + Clone, E: Send + Sync + Clone + 'static> HookComponent
+    for ComponentTemplate<T, E>
+{
+    async fn before_start(&mut self, sender: Sender<Self::Event>) -> IndexerResult<()> {
+        self.internal.before_start(sender).await
+    }
+
+    fn interval(&self) -> Option<Duration> {
+        self.internal.interval()
+    }
+
+    async fn handle_tick_event(&mut self) -> IndexerResult<()> {
+        self.internal.handle_tick_event().await
+    }
+}
 impl<T: HookComponent<Event = E> + Clone, E: Send + Sync + Clone + 'static>
     ComponentTemplate<T, E>
 {
     async fn on_start(&mut self, exit: watch::Receiver<()>) -> IndexerResult<()> {
         let tx = self.event_tx().unwrap();
         self.internal.before_start(tx).await?;
-        let interval = self.interval();
-        let mut interval = tokio::time::interval(interval);
         let rx = self.rx.clone();
-        loop {
-            tokio::select! {
-                 event=rx.recv()=>{
-                    match event{
-                        Ok(event) => {
-                            if let Err(e)= self.handle_event(&event).await{
-                                    log::error!("handle event error: {:?}", e);
-                            }
-                        }
-                        Err(e) => {
-                            log::error!("receive event error: {:?}", e);
-                            break;
+        let interval = self.interval();
+        if interval.is_none() {
+            loop {
+                let event = rx.recv().await;
+                match event {
+                    Ok(event) => {
+                        if let Err(e) = self.handle_event(&event).await {
+                            log::error!("handle event error: {:?}", e);
                         }
                     }
-                  }
-               _ = interval.tick() => {
-                    if let Err(e)=self.handle_tick_event().await{
-                        warn!("handle tick event error: {:?}", e)
+                    Err(e) => {
+                        log::error!("receive event error: {:?}", e);
+                        break;
+                    }
+                }
+            }
+        } else {
+            let interval = interval.unwrap();
+            let mut interval = tokio::time::interval(interval);
+            loop {
+                tokio::select! {
+                     event=rx.recv()=>{
+                        match event{
+                            Ok(event) => {
+                                if let Err(e)= self.handle_event(&event).await{
+                                        log::error!("handle event error: {:?}", e);
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("receive event error: {:?}", e);
+                                break;
+                            }
+                        }
+                      }
+                   _ = interval.tick() => {
+                        if let Err(e)=self.handle_tick_event().await{
+                            warn!("handle tick event error: {:?}", e)
+                        }
                     }
                 }
             }

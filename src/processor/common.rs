@@ -71,10 +71,6 @@ impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
         unreachable!()
     }
 
-    fn interval(&self) -> Duration {
-        Duration::from_secs(300)
-    }
-
     async fn handle_event(&mut self, event: &Self::Event) -> IndexerResult<()> {
         if let Err(e) = self.do_handle_event(event).await {
             error!("handle_event error:{:?}", e)

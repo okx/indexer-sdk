@@ -50,10 +50,6 @@ impl Component for WaitIndexerCatchupComponent {
         unreachable!()
     }
 
-    fn interval(&self) -> Duration {
-        Duration::from_secs(1000)
-    }
-
     async fn start(&mut self, _: Receiver<()>) -> IndexerResult<Vec<JoinHandle<()>>> {
         let node = self.clone();
         Ok(vec![tokio::task::spawn(async move {
