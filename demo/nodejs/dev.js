@@ -14,7 +14,6 @@ const myLib = ffi.Library(pathToLib, {
     'start_processor': ['void',[]]
 });
 
-// 调用函数
 async function main() {
     console.log(1)
     myLib.start_processor();
