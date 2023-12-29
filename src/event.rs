@@ -1,7 +1,11 @@
 use crate::types::delta::TransactionDelta;
+use bigdecimal::num_bigint::{BigInt, ToBigInt};
+use bigdecimal::num_traits::FromBytes;
+use bigdecimal::num_traits::ToBytes;
 use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
 use bitcoincore_rpc::bitcoin::hashes::Hash;
 use bitcoincore_rpc::bitcoin::{Block, Txid};
+use primitive_types::U256;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
@@ -139,6 +143,16 @@ pub struct BalanceType(pub bigdecimal::BigDecimal);
 impl From<i32> for BalanceType {
     fn from(value: i32) -> Self {
         BalanceType(bigdecimal::BigDecimal::from(value))
+    }
+}
+impl BalanceType {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let bg = self.0.to_bigint().unwrap();
+        bg.to_le_bytes().to_vec()
+    }
+    pub fn from_bytes(data: &[u8]) -> Self {
+        let bg = BigInt::from_le_bytes(data);
+        BalanceType(bigdecimal::BigDecimal::from(bg))
     }
 }
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]

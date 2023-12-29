@@ -2,7 +2,7 @@ use crate::client::event::ClientEvent;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
-use crate::types::response::GetDataResponse;
+use crate::types::response::{AllBalanceResponse, GetDataResponse};
 use bitcoincore_rpc::bitcoin::Transaction;
 
 pub mod common;
@@ -42,7 +42,7 @@ pub trait SyncClient {
     fn get_all_balance(
         &mut self,
         address_type: AddressType,
-    ) -> IndexerResult<Vec<(TokenType, BalanceType)>>;
+    ) -> IndexerResult<Vec<AllBalanceResponse>>;
 
     fn update_delta(&mut self, result: TransactionDelta) -> IndexerResult<()>;
 

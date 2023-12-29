@@ -6,7 +6,7 @@ use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::storage::db::level_db::LevelDB;
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
-use crate::types::response::GetDataResponse;
+use crate::types::response::{AllBalanceResponse, GetDataResponse};
 use async_channel::Receiver;
 use bitcoincore_rpc::bitcoin::Transaction;
 use std::sync::Arc;
@@ -120,7 +120,7 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
     fn get_all_balance(
         &mut self,
         address_type: AddressType,
-    ) -> IndexerResult<Vec<(TokenType, BalanceType)>> {
+    ) -> IndexerResult<Vec<AllBalanceResponse>> {
         Ok(self
             .rt
             .block_on(async { self.storage.get_all_balance(&address_type).await })?)

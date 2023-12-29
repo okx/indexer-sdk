@@ -44,7 +44,7 @@ pub async fn async_create_and_start_processor(
     }));
     let flag = Arc::new(AtomicBool::new(false));
     // let db = MemoryDB::default();
-    let db = LevelDB::default();
+    let db = LevelDB::new("./db");
     let processor = KVStorageProcessor::new(db);
     let client = Arc::new(create_client_from_configuration(origin_cfg.clone()));
     let (notify_tx, notify_rx) = async_channel::unbounded();

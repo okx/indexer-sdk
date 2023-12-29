@@ -3,6 +3,7 @@ use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
 use crate::storage::prefix::{DeltaStatus, SeenStatus};
 use crate::storage::{SeenStatusResponse, StorageProcessor};
 use crate::types::delta::TransactionDelta;
+use crate::types::response::AllBalanceResponse;
 use bitcoincore_rpc::bitcoin::Transaction;
 use log::debug;
 use std::collections::HashMap;
@@ -86,7 +87,7 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
     async fn get_all_balance(
         &mut self,
         address: &AddressType,
-    ) -> IndexerResult<Vec<(TokenType, BalanceType)>> {
+    ) -> IndexerResult<Vec<AllBalanceResponse>> {
         let read = self.rw_lock.write().await;
         let ret = self.internal.get_all_balance(address).await;
         drop(read);

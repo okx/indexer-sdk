@@ -5,6 +5,7 @@ use crate::storage::prefix::SEEN_DATA_STATUS_INDEX;
 use crate::storage::prefix::{DeltaStatus, KeyPrefix, SeenStatus};
 use crate::storage::{SeenStatusResponse, StorageProcessor};
 use crate::types::delta::TransactionDelta;
+use crate::types::response::AllBalanceResponse;
 use bitcoincore_rpc::bitcoin::Transaction;
 use chrono::Local;
 use log::{error, info};
@@ -166,8 +167,28 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
     async fn get_all_balance(
         &mut self,
         address: &AddressType,
-    ) -> IndexerResult<Vec<(TokenType, BalanceType)>> {
-        todo!()
+    ) -> IndexerResult<Vec<AllBalanceResponse>> {
+        let prefix = KeyPrefix::build_address_balance_prefix_key(address);
+        let l = prefix.len();
+        let ret = self.db.iter_all(
+            prefix.as_slice(),
+            |k| {
+                let token_type = TokenType::from_bytes(&k[l..]);
+                token_type
+            },
+            |v| {
+                let balance: BalanceType = serde_json::from_slice(v.as_slice()).unwrap();
+                Some(balance)
+            },
+        )?;
+        let ret: Vec<AllBalanceResponse> = ret
+            .into_iter()
+            .map(|(token_type, balance)| AllBalanceResponse {
+                balance,
+                token: token_type,
+            })
+            .collect();
+        Ok(ret)
     }
 }
 

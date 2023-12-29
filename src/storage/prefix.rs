@@ -71,6 +71,11 @@ impl KeyPrefix {
         ret.extend_from_slice(token_type.to_bytes().as_slice());
         ret
     }
+    pub fn build_address_balance_prefix_key(address: &AddressType) -> Vec<u8> {
+        let mut ret = Self::AddressTokenBalance.get_prefix().to_vec();
+        ret.extend_from_slice(address.to_bytes().as_slice());
+        ret
+    }
     pub fn build_seen_tx_key(tx_id: &TxIdType) -> Vec<u8> {
         let mut ret = Self::SeenTx.get_prefix().to_vec();
         ret.extend_from_slice(tx_id.to_bytes().as_slice());

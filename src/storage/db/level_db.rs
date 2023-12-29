@@ -27,6 +27,14 @@ impl Default for LevelDB {
         LevelDB { db }
     }
 }
+impl LevelDB {
+    pub fn new(path: &str) -> Self {
+        let db = Rc::new(RefCell::new(
+            rusty_leveldb::DB::open(path, rusty_leveldb::Options::default()).unwrap(),
+        ));
+        LevelDB { db }
+    }
+}
 impl DB for LevelDB {
     fn set(&mut self, key: &[u8], value: &[u8]) -> IndexerResult<()> {
         let mut db = self.db.borrow_mut();

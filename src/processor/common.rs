@@ -223,7 +223,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     }
     async fn do_handle_tx_removed(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
         self.do_handle_tx_confirmed(tx_id, DeltaStatus::InActive)
-            .await;
+            .await?;
         self.tx
             .send(ClientEvent::TxDroped(tx_id.clone()))
             .await

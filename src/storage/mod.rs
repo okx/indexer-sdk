@@ -8,6 +8,7 @@ use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
 use crate::storage::prefix::{DeltaStatus, SeenStatus};
 use crate::types::delta::TransactionDelta;
+use crate::types::response::AllBalanceResponse;
 use bitcoincore_rpc::bitcoin::Transaction;
 use std::collections::HashMap;
 
@@ -22,7 +23,7 @@ pub trait StorageProcessor: Send + Sync {
     async fn get_all_balance(
         &mut self,
         address: &AddressType,
-    ) -> IndexerResult<Vec<(TokenType, BalanceType)>>;
+    ) -> IndexerResult<Vec<AllBalanceResponse>>;
 
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()>;
     async fn remove_transaction_delta(
@@ -95,7 +96,7 @@ impl StorageProcessor for Box<dyn StorageProcessor> {
     async fn get_all_balance(
         &mut self,
         address: &AddressType,
-    ) -> IndexerResult<Vec<(TokenType, BalanceType)>> {
+    ) -> IndexerResult<Vec<AllBalanceResponse>> {
         self.as_mut().get_all_balance(address).await
     }
 }
