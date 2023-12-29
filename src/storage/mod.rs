@@ -18,6 +18,12 @@ pub trait StorageProcessor: Send + Sync {
         address: &AddressType,
         token_type: &TokenType,
     ) -> IndexerResult<BalanceType>;
+
+    async fn get_all_balance(
+        &mut self,
+        address: &AddressType,
+    ) -> IndexerResult<Vec<(TokenType, BalanceType)>>;
+
     async fn add_transaction_delta(&mut self, transaction: &TransactionDelta) -> IndexerResult<()>;
     async fn remove_transaction_delta(
         &mut self,
@@ -84,5 +90,12 @@ impl StorageProcessor for Box<dyn StorageProcessor> {
 
     async fn is_tx_executed(&mut self, tx_id: &TxIdType) -> IndexerResult<bool> {
         self.as_mut().is_tx_executed(tx_id).await
+    }
+
+    async fn get_all_balance(
+        &mut self,
+        address: &AddressType,
+    ) -> IndexerResult<Vec<(TokenType, BalanceType)>> {
+        self.as_mut().get_all_balance(address).await
     }
 }

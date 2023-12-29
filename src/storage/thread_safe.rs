@@ -82,4 +82,14 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
         drop(read);
         ret
     }
+
+    async fn get_all_balance(
+        &mut self,
+        address: &AddressType,
+    ) -> IndexerResult<Vec<(TokenType, BalanceType)>> {
+        let read = self.rw_lock.write().await;
+        let ret = self.internal.get_all_balance(address).await;
+        drop(read);
+        ret
+    }
 }

@@ -26,3 +26,25 @@ pub trait Client: Send + Sync {
 
     fn rx(&self) -> async_channel::Receiver<ClientEvent>;
 }
+
+#[async_trait::async_trait]
+pub trait SyncClient {
+    fn get_event(&self) -> IndexerResult<Option<ClientEvent>>;
+    fn report_height(&self, height: u32) -> IndexerResult<()>;
+    fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()>;
+    fn push_event(&self, event: IndexerEvent) -> IndexerResult<()>;
+    fn get_balance(
+        &mut self,
+        address_type: AddressType,
+        token_type: TokenType,
+    ) -> IndexerResult<BalanceType>;
+
+    fn get_all_balance(
+        &mut self,
+        address_type: AddressType,
+    ) -> IndexerResult<Vec<(TokenType, BalanceType)>>;
+
+    fn update_delta(&mut self, result: TransactionDelta) -> IndexerResult<()>;
+
+    fn rx(&self) -> async_channel::Receiver<ClientEvent>;
+}

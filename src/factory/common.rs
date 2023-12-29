@@ -16,6 +16,7 @@ use std::process::exit;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::{panic, thread};
+use tokio::runtime;
 use tokio::runtime::Runtime;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -27,7 +28,15 @@ pub async fn async_create_and_start_processor(
 ) -> (
     DirectClient<KVStorageProcessor<LevelDB>>,
     Vec<JoinHandle<()>>,
+    Arc<Runtime>,
 ) {
+    let rt = Arc::new(
+        runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap(),
+    );
+
     panic::set_hook(Box::new(|panic_info| {
         println!("panic occurred: {:?}", panic_info);
         error!("panic occurred: {:?}", panic_info);
@@ -78,7 +87,11 @@ pub async fn async_create_and_start_processor(
     ret.extend(processor_wrapper.start(origin_exit.clone()).await.unwrap());
 
     let client = CommonClient::new(notify_rx.clone(), indexer_tx.clone());
-    (DirectClient::new(processor.clone(), client), ret)
+    (
+        DirectClient::new(rt.clone(), processor.clone(), client),
+        ret,
+        rt.clone(),
+    )
 }
 
 pub(crate) fn create_client_from_configuration(

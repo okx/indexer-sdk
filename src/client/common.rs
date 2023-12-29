@@ -1,5 +1,5 @@
 use crate::client::event::ClientEvent;
-use crate::client::Client;
+use crate::client::{Client, SyncClient};
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
@@ -72,7 +72,7 @@ impl CommonClient {
         Self { rx, tx }
     }
 
-    fn do_get_balance(
+    pub(crate) fn do_get_balance(
         &self,
         address: AddressType,
         token_type: TokenType,
@@ -84,13 +84,13 @@ impl CommonClient {
         let ret = rx.recv().unwrap();
         Ok(ret)
     }
-    fn do_update_delta(&self, delta: TransactionDelta) -> IndexerResult<()> {
+    pub(crate) fn do_update_delta(&self, delta: TransactionDelta) -> IndexerResult<()> {
         self.tx
             .send_blocking(IndexerEvent::UpdateDelta(delta))
             .unwrap();
         Ok(())
     }
-    fn do_get_data(&self) -> IndexerResult<Option<ClientEvent>> {
+    pub(crate) fn do_get_data(&self) -> IndexerResult<Option<ClientEvent>> {
         let res = self.rx.try_recv();
         return match res {
             Ok(ret) => {

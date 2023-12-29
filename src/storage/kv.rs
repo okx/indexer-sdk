@@ -162,6 +162,13 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         let resp = self.seen_tx(tx_id.clone()).await?;
         Ok(resp.is_executed())
     }
+
+    async fn get_all_balance(
+        &mut self,
+        address: &AddressType,
+    ) -> IndexerResult<Vec<(TokenType, BalanceType)>> {
+        todo!()
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]

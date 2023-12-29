@@ -1,14 +1,14 @@
 use bitcoincore_rpc::bitcoin::Transaction;
+use indexer_sdk::client::drect::DirectClient;
+use indexer_sdk::client::event::ClientEvent;
+use indexer_sdk::client::Client;
+use indexer_sdk::configuration::base::{IndexerConfiguration, NetConfiguration, ZMQConfiguration};
+use indexer_sdk::event::TxIdType;
+use indexer_sdk::factory::common::async_create_and_start_processor;
+use indexer_sdk::storage::StorageProcessor;
+use indexer_sdk::types::delta::TransactionDelta;
+use indexer_sdk::types::response::GetDataResponse;
 use log::{error, info};
-use mylibrary::client::drect::DirectClient;
-use mylibrary::client::event::ClientEvent;
-use mylibrary::client::Client;
-use mylibrary::configuration::base::{IndexerConfiguration, NetConfiguration, ZMQConfiguration};
-use mylibrary::event::TxIdType;
-use mylibrary::factory::common::async_create_and_start_processor;
-use mylibrary::storage::StorageProcessor;
-use mylibrary::types::delta::TransactionDelta;
-use mylibrary::types::response::GetDataResponse;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
@@ -23,7 +23,7 @@ pub async fn main() {
 
     let (tx, rx) = watch::channel(());
     let mut handlers = vec![];
-    let (client, tasks) = async_create_and_start_processor(
+    let (client, tasks, _) = async_create_and_start_processor(
         rx,
         IndexerConfiguration {
             mq: ZMQConfiguration {
