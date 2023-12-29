@@ -1,6 +1,9 @@
 use crate::client::common::CommonClient;
 use crate::client::drect::DirectClient;
+use crate::client::event::ClientEvent;
+use crate::client::Client;
 use crate::configuration::base::{IndexerConfiguration, NetConfiguration, ZMQConfiguration};
+use crate::event::IndexerEvent;
 use crate::factory::common::sync_create_and_start_processor;
 use crate::storage::db::level_db::LevelDB;
 use crate::storage::kv::KVStorageProcessor;
@@ -52,7 +55,7 @@ pub extern "C" fn start_processor() {
 }
 
 #[no_mangle]
-pub extern "C" fn get_data() -> ByteArray {
+pub extern "C" fn get_event() -> ByteArray {
     let notifier = get_notifier();
     let binding = notifier.get();
     let ptr = binding.as_ptr();
@@ -64,7 +67,9 @@ pub extern "C" fn get_data() -> ByteArray {
 }
 
 #[no_mangle]
-pub extern "C" fn push_data(data: *const u8, len: usize) {
+pub extern "C" fn push_event(data: *const u8, len: usize) {
     let bytes = unsafe { std::slice::from_raw_parts(data, len) };
-    println!("Received bytes: {:?}", bytes);
+    let event = IndexerEvent::from_bytes(bytes);
+    let notifier = get_notifier();
+    notifier.sync_push_event(event);
 }

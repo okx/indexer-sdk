@@ -30,9 +30,8 @@ impl Client for CommonClient {
         self.do_get_data()
     }
 
-    async fn push_data(&self, data: Vec<u8>) -> IndexerResult<()> {
-        let data: TransactionDelta = serde_json::from_slice(data.as_slice()).unwrap();
-        self.tx.send(IndexerEvent::UpdateDelta(data)).await.unwrap();
+    async fn push_event(&self, event: IndexerEvent) -> IndexerResult<()> {
+        self.tx.send(event).await.unwrap();
         Ok(())
     }
 
@@ -100,6 +99,10 @@ impl CommonClient {
             }
             Err(v) => Ok(None),
         };
+    }
+
+    pub fn sync_push_event(&self, event: IndexerEvent) {
+        self.tx.send_blocking(event).unwrap();
     }
 
     pub fn get(&self) -> Vec<u8> {

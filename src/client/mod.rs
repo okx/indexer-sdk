@@ -1,6 +1,6 @@
 use crate::client::event::ClientEvent;
 use crate::error::IndexerResult;
-use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
+use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
 use crate::types::response::GetDataResponse;
 use bitcoincore_rpc::bitcoin::Transaction;
@@ -16,8 +16,7 @@ pub trait Client: Send + Sync {
     async fn get_event(&self) -> IndexerResult<Option<ClientEvent>>;
     async fn report_height(&self, height: u32) -> IndexerResult<()>;
     async fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()>;
-
-    async fn push_data(&self, data: Vec<u8>) -> IndexerResult<()>;
+    async fn push_event(&self, event: IndexerEvent) -> IndexerResult<()>;
     async fn get_balance(
         &mut self,
         address_type: AddressType,

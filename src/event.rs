@@ -1,4 +1,5 @@
 use crate::types::delta::TransactionDelta;
+use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
 use bitcoincore_rpc::bitcoin::hashes::Hash;
 use bitcoincore_rpc::bitcoin::{Block, Txid};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -23,6 +24,83 @@ pub enum IndexerEvent {
 
     ReportReorg(Vec<TxIdType>),
 }
+impl IndexerEvent {
+    pub fn get_suffix(&self) -> u8 {
+        match self {
+            IndexerEvent::NewTxComing(_, _) => 0,
+            IndexerEvent::GetBalance(_, _) => 1,
+            IndexerEvent::UpdateDelta(_) => 2,
+            IndexerEvent::TxConfirmed(_) => 3,
+            // IndexerEvent::RawBlockComing(_, _) => 4,
+            IndexerEvent::TxFromRestoreByTxId(_) => 5,
+            IndexerEvent::TxRemoved(_) => 6,
+            IndexerEvent::ReportHeight(_) => 7,
+            IndexerEvent::ReportReorg(_) => 8,
+        }
+    }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut data = match self {
+            IndexerEvent::UpdateDelta(tx) => {
+                let mut data = serde_json::to_vec(&tx).unwrap();
+                data
+            }
+            IndexerEvent::TxConfirmed(tx_id) => {
+                let mut data = tx_id.to_bytes();
+                data
+            }
+            IndexerEvent::TxFromRestoreByTxId(tx_id) => {
+                let mut data = tx_id.to_bytes();
+                data
+            }
+            IndexerEvent::TxRemoved(tx_id) => {
+                let mut data = tx_id.to_bytes();
+                data
+            }
+            IndexerEvent::ReportHeight(height) => {
+                let mut data = height.to_le_bytes().to_vec();
+                data
+            }
+            IndexerEvent::ReportReorg(txs) => {
+                let mut data = serde_json::to_vec(&txs).unwrap();
+                data
+            }
+            _ => {
+                panic!("not support");
+            }
+        };
+        data.push(self.get_suffix());
+        data
+    }
+    pub fn from_bytes(data: &[u8]) -> Self {
+        let suffix = data[data.len() - 1];
+        match suffix {
+            0 => {
+                let tx: TransactionDelta =
+                    serde_json::from_slice(&data[0..data.len() - 1]).unwrap();
+                IndexerEvent::UpdateDelta(tx)
+            }
+            2 => {
+                let tx_id = TxIdType::from_bytes(&data[0..data.len() - 1]);
+                IndexerEvent::TxConfirmed(tx_id)
+            }
+            5 => {
+                let tx_id = TxIdType::from_bytes(&data[0..data.len() - 1]);
+                IndexerEvent::TxRemoved(tx_id)
+            }
+            6 => {
+                let height = u32::from_be_bytes(data[0..data.len() - 1].try_into().unwrap());
+                IndexerEvent::ReportHeight(height)
+            }
+            7 => {
+                let tx_ids = serde_json::from_slice(&data[0..data.len() - 1]).unwrap();
+                IndexerEvent::ReportReorg(tx_ids)
+            }
+            _ => {
+                panic!("unknown suffix:{}", suffix);
+            }
+        }
+    }
+}
 
 impl Debug for IndexerEvent {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -39,9 +117,6 @@ impl Debug for IndexerEvent {
             IndexerEvent::TxConfirmed(v) => {
                 write!(f, "TxConfirmed :{:?}", v)
             }
-            // IndexerEvent::RawBlockComing(_, _) => {
-            //     write!(f, "RawBlockComing")
-            // }
             IndexerEvent::TxFromRestoreByTxId(v) => {
                 write!(f, "TxFromRestoreByTxId:{:?}", v)
             }
