@@ -149,6 +149,9 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 self.do_handle_tx_removed(tx_id).await?;
             }
             IndexerEvent::ReportHeight(_) => {}
+            IndexerEvent::ReportReorg(ts) => {
+                self.do_handle_report_reorg(ts).await?;
+            }
         }
         Ok(())
     }
@@ -220,7 +223,20 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     }
     async fn do_handle_tx_removed(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
         self.do_handle_tx_confirmed(tx_id, DeltaStatus::InActive)
+            .await;
+        self.tx
+            .send(ClientEvent::TxDroped(tx_id.clone()))
             .await
+            .unwrap();
+        Ok(())
+    }
+    async fn do_handle_report_reorg(&mut self, txs: &Vec<TxIdType>) -> IndexerResult<()> {
+        for tx_id in txs {
+            if let Err(e) = self.do_handle_tx_removed(tx_id).await {
+                error!("do_handle_report_reorg error:{:?},txid:{:?}", e, tx_id);
+            }
+        }
+        Ok(())
     }
 }
 

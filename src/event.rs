@@ -20,6 +20,8 @@ pub enum IndexerEvent {
     TxConfirmed(TxIdType),
 
     ReportHeight(u32),
+
+    ReportReorg(Vec<TxIdType>),
 }
 
 impl Debug for IndexerEvent {
@@ -48,6 +50,9 @@ impl Debug for IndexerEvent {
             }
             IndexerEvent::ReportHeight(v) => {
                 write!(f, "ReportHeight: {}", v)
+            }
+            IndexerEvent::ReportReorg(v) => {
+                write!(f, "ReportReorg: {:?}", v)
             }
         }
     }

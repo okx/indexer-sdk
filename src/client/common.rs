@@ -57,6 +57,12 @@ impl Client for CommonClient {
             .unwrap();
         Ok(())
     }
+    async fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()> {
+        self.tx
+            .send_blocking(IndexerEvent::ReportReorg(txs))
+            .unwrap();
+        Ok(())
+    }
 }
 
 impl CommonClient {

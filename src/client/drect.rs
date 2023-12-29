@@ -2,7 +2,7 @@ use crate::client::common::CommonClient;
 use crate::client::event::ClientEvent;
 use crate::client::Client;
 use crate::error::IndexerResult;
-use crate::event::{AddressType, BalanceType, TokenType};
+use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
 use crate::storage::db::level_db::LevelDB;
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
@@ -55,6 +55,9 @@ impl<T: StorageProcessor + Clone> Client for DirectClient<T> {
 
     async fn report_height(&self, height: u32) -> IndexerResult<()> {
         self.base.report_height(height).await
+    }
+    async fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()> {
+        self.base.report_reorg(txs).await
     }
 }
 
