@@ -44,6 +44,10 @@ pub extern "C" fn start_processor() {
     let db_path = std::env::var("DB_PATH")
         .map(|v| v.to_string())
         .unwrap_or("./indexer_db".to_string());
+    let btc_rpc_url = std::env::var("BTC_RPC_URL").unwrap();
+    let btc_rpc_username = std::env::var("BTC_RPC_USERNAME").unwrap();
+    let btc_rpc_password = std::env::var("BTC_RPC_PASSWORD").unwrap();
+
     info!("zmq_url: {}, zmq_topics: {}", zmq_url, zmq_topics);
     let zmq_topics: Vec<String> = zmq_topics.split(",").map(|v| v.to_string()).collect();
     let ret = sync_create_and_start_processor(IndexerConfiguration {
@@ -51,7 +55,11 @@ pub extern "C" fn start_processor() {
             zmq_url,
             zmq_topic: zmq_topics,
         },
-        net: NetConfiguration::default(),
+        net: NetConfiguration {
+            url: btc_rpc_url,
+            username: btc_rpc_username,
+            password: btc_rpc_password,
+        },
         db_path,
     });
     let old = get_option_notifier();

@@ -2,6 +2,9 @@ const ffi = require('ffi-napi');
 const ref = require('ref-napi');
 process.env.ZMQ_URL = 'tcp://0.0.0.0:28332';
 process.env.ZMQ_TOPIC = '*';
+process.env.BTC_RPC_URL='http://localhost:18443';
+process.env.BTC_RPC_USERNAME='bitcoinrpc';
+process.env.BTC_RPC_PASSWORD='bitcoinrpc';
 const pathToLib = '/Users/lvcong/RustroverProjects/indexer-sdk/target/debug/libindexer_sdk.dylib';
 const rustLib = ffi.Library(pathToLib, {
     'start_processor': ['void', []],

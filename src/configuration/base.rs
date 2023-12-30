@@ -7,12 +7,6 @@ pub struct IndexerConfiguration {
     pub db_path: String,
 }
 
-impl IndexerConfiguration {
-    pub async fn test_asd(&self) {
-        info!("asd");
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct NetConfiguration {
     pub url: String,
