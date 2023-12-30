@@ -18,19 +18,19 @@ impl Clone for LevelDB {
         }
     }
 }
+impl LevelDB {
+    pub fn new(path: &str) -> IndexerResult<Self> {
+        let db = Rc::new(RefCell::new(
+            rusty_leveldb::DB::open(path, rusty_leveldb::Options::default()).unwrap(),
+        ));
+        Ok(LevelDB { db })
+    }
+}
 
 impl Default for LevelDB {
     fn default() -> Self {
         let db = Rc::new(RefCell::new(
-            rusty_leveldb::DB::open("./db", rusty_leveldb::Options::default()).unwrap(),
-        ));
-        LevelDB { db }
-    }
-}
-impl LevelDB {
-    pub fn new(path: &str) -> Self {
-        let db = Rc::new(RefCell::new(
-            rusty_leveldb::DB::open(path, rusty_leveldb::Options::default()).unwrap(),
+            rusty_leveldb::DB::open("./indexer_sdk_db", rusty_leveldb::Options::default()).unwrap(),
         ));
         LevelDB { db }
     }

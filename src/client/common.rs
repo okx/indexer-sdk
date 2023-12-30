@@ -93,10 +93,7 @@ impl CommonClient {
     pub(crate) fn do_get_data(&self) -> IndexerResult<Option<ClientEvent>> {
         let res = self.rx.try_recv();
         return match res {
-            Ok(ret) => {
-                info!("get data from channel");
-                Ok(Some(ret))
-            }
+            Ok(ret) => Ok(Some(ret)),
             Err(v) => Ok(None),
         };
     }

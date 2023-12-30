@@ -35,6 +35,7 @@ pub async fn main() {
                 username: "bitcoinrpc".to_string(),
                 password: "bitcoinrpc".to_string(),
             },
+            db_path: "./db".to_string(),
         },
     )
     .await;

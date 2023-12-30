@@ -4,6 +4,7 @@ use log::info;
 pub struct IndexerConfiguration {
     pub mq: ZMQConfiguration,
     pub net: NetConfiguration,
+    pub db_path: String,
 }
 
 impl IndexerConfiguration {

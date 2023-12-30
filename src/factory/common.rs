@@ -30,6 +30,11 @@ pub async fn async_create_and_start_processor(
     Vec<JoinHandle<()>>,
     Arc<Runtime>,
 ) {
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Debug)
+        .format_target(false)
+        .init();
+
     let rt = Arc::new(
         runtime::Builder::new_current_thread()
             .enable_all()
@@ -43,8 +48,7 @@ pub async fn async_create_and_start_processor(
         exit(-1);
     }));
     let flag = Arc::new(AtomicBool::new(false));
-    // let db = MemoryDB::default();
-    let db = LevelDB::new("./db");
+    let db = LevelDB::new(origin_cfg.db_path.as_str()).unwrap();
     let processor = KVStorageProcessor::new(db);
     let client = Arc::new(create_client_from_configuration(origin_cfg.clone()));
     let (notify_tx, notify_rx) = async_channel::unbounded();

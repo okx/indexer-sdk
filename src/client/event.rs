@@ -21,33 +21,22 @@ impl ClientEvent {
             ClientEvent::TxConfirmed(_) => 3,
         }
     }
-    pub fn from_bytes(data: &[u8]) -> ClientEvent {
-        let suffix = data[data.len() - 1];
-        match suffix {
-            0 => {
-                let tx: Transaction = deserialize(&data[0..data.len() - 1]).unwrap();
-                ClientEvent::Transaction(tx)
-            }
-            1 => ClientEvent::GetHeight,
-            2 => {
-                let tx_id = TxIdType::from_bytes(&data[0..data.len() - 1]);
-                ClientEvent::TxDroped(tx_id)
-            }
-            3 => {
-                let tx_id = TxIdType::from_bytes(&data[0..data.len() - 1]);
-                ClientEvent::TxConfirmed(tx_id)
-            }
-            _ => {
-                panic!("unknown suffix:{}", suffix);
-            }
-        }
-    }
     pub fn to_bytes(&self) -> Vec<u8> {
-        // TODO: add suffix to distinguish different event
         match self {
             ClientEvent::Transaction(tx) => {
                 let mut ret = serialize(tx);
                 ret.push(self.get_suffix());
+                // let vv = ret.clone();
+                // let cstr = loop {
+                //     match CString::new(&vv) {
+                //         Ok(cstr) => break cstr,
+                //         Err(err) => {
+                //             let idx = err.nul_position();
+                //             message = err.into_vec();
+                //             message.remove(idx);
+                //         }
+                //     }
+                // };
                 ret
             }
             ClientEvent::GetHeight => {
@@ -69,6 +58,7 @@ impl ClientEvent {
 
 #[derive(Clone, Debug)]
 pub enum RequestEvent {
+    PushHeight(u32),
     GetBalance(AddressType, TokenType),
     GetAllBalance(AddressType),
     PushDelta(TransactionDelta),
@@ -86,19 +76,26 @@ impl Into<Option<IndexerEvent>> for RequestEvent {
             RequestEvent::GetBalance(address_type, token_type) => None,
             RequestEvent::GetAllBalance(address_type) => None,
             RequestEvent::PushDelta(delta) => Some(IndexerEvent::UpdateDelta(delta)),
+            RequestEvent::PushHeight(h) => Some(IndexerEvent::ReportHeight(h)),
         }
     }
 }
 impl RequestEvent {
     pub fn get_suffix(&self) -> u8 {
         match self {
-            RequestEvent::GetBalance(_, _) => 0,
-            RequestEvent::GetAllBalance(_) => 1,
-            RequestEvent::PushDelta(_) => 2,
+            RequestEvent::PushHeight(_) => 0,
+            RequestEvent::GetBalance(_, _) => 1,
+            RequestEvent::GetAllBalance(_) => 2,
+            RequestEvent::PushDelta(_) => 3,
         }
     }
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
+            RequestEvent::PushHeight(height) => {
+                let mut ret = height.to_be_bytes().to_vec();
+                ret.push(self.get_suffix());
+                ret
+            }
             RequestEvent::GetBalance(address_type, token_type) => {
                 let mut ret = address_type.to_bytes();
                 ret.extend_from_slice(&token_type.to_bytes());
@@ -121,15 +118,21 @@ impl RequestEvent {
         let suffix = data[data.len() - 1];
         match suffix {
             0 => {
-                let address: AddressTokenWrapper =
-                    serde_json::from_slice(&data[0..data.len() - 1]).unwrap();
-                RequestEvent::GetBalance(address.address, address.token)
+                let height = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+                RequestEvent::PushHeight(height)
             }
             1 => {
+                let address_wp: AddressTokenWrapper =
+                    serde_json::from_slice(&data[0..data.len() - 1]).unwrap();
+                let address_type = address_wp.address;
+                let token_type = address_wp.token;
+                RequestEvent::GetBalance(address_type, token_type)
+            }
+            2 => {
                 let address_type = AddressType::from_bytes(&data[0..data.len() - 1]);
                 RequestEvent::GetAllBalance(address_type)
             }
-            2 => {
+            3 => {
                 let delta: TransactionDelta =
                     serde_json::from_slice(&data[0..data.len() - 1]).unwrap();
                 RequestEvent::PushDelta(delta)
