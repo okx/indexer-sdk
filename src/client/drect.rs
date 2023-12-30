@@ -73,6 +73,9 @@ impl<T: StorageProcessor + Clone> DirectClient<T> {
     pub fn get(&self) -> Vec<u8> {
         self.base.get()
     }
+    pub fn block_get(&self) -> Vec<u8> {
+        self.base.block_get()
+    }
 }
 impl<T: StorageProcessor + Clone> DirectClient<T> {
     pub fn sync_push_event(&self, event: IndexerEvent) {
