@@ -1,14 +1,11 @@
 use crate::client::event::ClientEvent;
-use crate::client::Client;
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
 use crate::event::IndexerEvent;
-use crate::{Component, HookComponent};
-use async_channel::Sender;
+use crate::Component;
 use bitcoincore_rpc::RpcApi;
 use log::{error, info};
 use std::sync::Arc;
-use std::thread::sleep;
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
 use tokio::task::JoinHandle;

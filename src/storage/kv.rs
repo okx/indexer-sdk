@@ -1,3 +1,4 @@
+#[warn(dead_code)]
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
 use crate::storage::db::DB;
@@ -111,7 +112,6 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         data.extend_from_slice(SeenStatus::UnExecuted.to_u8().to_le_bytes().as_slice());
         info!("tx_id:{:?} is not seen,store it", tx_id);
         self.db.set(key.as_slice(), data.as_slice())?;
-        let vv = self.db.get(key.as_slice())?;
         return Ok(SeenStatusResponse {
             seen: false,
             status: SeenStatus::UnExecuted,
@@ -307,10 +307,10 @@ impl<T: DB + Send + Sync + Clone> KVStorageProcessor<T> {
         write_batch.put(key.as_slice(), data.as_slice());
         Ok(())
     }
-    pub(crate) fn rm_seen_record(&mut self, batch: &mut WriteBatch, tx_id: &TxIdType) {
-        let key = KeyPrefix::build_seen_tx_key(tx_id);
-        batch.delete(key.as_slice());
-    }
+    // pub(crate) fn rm_seen_record(&mut self, batch: &mut WriteBatch, tx_id: &TxIdType) {
+    //     let key = KeyPrefix::build_seen_tx_key(tx_id);
+    //     batch.delete(key.as_slice());
+    // }
     pub fn update_state(&mut self, id: u32) -> IndexerResult<()> {
         let key = KeyPrefix::State.get_prefix();
         self.db.set(key, id.to_le_bytes().as_slice())?;

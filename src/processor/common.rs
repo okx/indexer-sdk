@@ -2,19 +2,16 @@ use crate::client::event::ClientEvent;
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
-use crate::storage::prefix::{DeltaStatus, SeenStatus};
+use crate::storage::prefix::DeltaStatus;
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
-use crate::types::response::{DataEnum, GetDataResponse};
 use crate::{Component, HookComponent, IndexProcessor};
 use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
 use bitcoincore_rpc::bitcoin::{Transaction, Txid};
 use bitcoincore_rpc::RpcApi;
 use log::{error, info};
-use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::thread::sleep;
-use std::time::Duration;
 use wg::AsyncWaitGroup;
 
 #[derive(Clone)]
@@ -129,7 +126,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     async fn do_handle_event(&mut self, event: &IndexerEvent) -> IndexerResult<()> {
         info!("do_handle_event,event:{:?}", event);
         match event {
-            IndexerEvent::NewTxComing(data, sequence) => {
+            IndexerEvent::NewTxComing(data, _) => {
                 self.do_handle_new_tx_coming(data, false).await?;
             }
             IndexerEvent::GetBalance(address, tx) => {
@@ -194,8 +191,8 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
 
     pub(crate) async fn do_handle_get_balance(
         &self,
-        address: &AddressType,
-        tx: &crossbeam::channel::Sender<BalanceType>,
+        _: &AddressType,
+        _: &crossbeam::channel::Sender<BalanceType>,
     ) -> IndexerResult<()> {
         todo!()
     }

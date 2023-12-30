@@ -16,11 +16,6 @@ use tokio::time::Duration;
 
 #[tokio::main]
 pub async fn main() {
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
-        .format_target(false)
-        .init();
-
     let (tx, rx) = watch::channel(());
     let mut handlers = vec![];
     let (client, tasks, _) = async_create_and_start_processor(

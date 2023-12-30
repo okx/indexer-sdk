@@ -1,13 +1,9 @@
 use crate::client::event::ClientEvent;
-use crate::client::{Client, SyncClient};
+use crate::client::Client;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
-use crate::types::response::GetDataResponse;
-use bitcoincore_rpc::bitcoin::consensus::serialize;
-use bitcoincore_rpc::bitcoin::Transaction;
-use crossbeam::channel::{Receiver, TryRecvError};
-use log::info;
+use log::debug;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -75,7 +71,7 @@ impl CommonClient {
     pub(crate) fn do_get_balance(
         &self,
         address: AddressType,
-        token_type: TokenType,
+        _: TokenType,
     ) -> IndexerResult<BalanceType> {
         let (tx, rx) = crossbeam::channel::bounded(1);
         self.tx
@@ -94,7 +90,7 @@ impl CommonClient {
         let res = self.rx.try_recv();
         return match res {
             Ok(ret) => Ok(Some(ret)),
-            Err(v) => Ok(None),
+            Err(_) => Ok(None),
         };
     }
 
@@ -104,6 +100,7 @@ impl CommonClient {
 
     pub fn get(&self) -> Vec<u8> {
         let data = self.do_get_data().unwrap();
+        debug!("get event:{:?}", &data);
         if data.is_none() {
             return vec![];
         }

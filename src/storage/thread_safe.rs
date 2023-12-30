@@ -1,6 +1,6 @@
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, TokenType, TxIdType};
-use crate::storage::prefix::{DeltaStatus, SeenStatus};
+use crate::storage::prefix::DeltaStatus;
 use crate::storage::{SeenStatusResponse, StorageProcessor};
 use crate::types::delta::TransactionDelta;
 use crate::types::response::AllBalanceResponse;

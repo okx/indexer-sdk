@@ -1,4 +1,4 @@
-use rusty_leveldb::{Status, StatusCode};
+use rusty_leveldb::Status;
 pub use thiserror::Error;
 
 pub type IndexerResult<T> = Result<T, IndexerError>;

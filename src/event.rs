@@ -2,10 +2,7 @@ use crate::types::delta::TransactionDelta;
 use bigdecimal::num_bigint::{BigInt, ToBigInt};
 use bigdecimal::num_traits::FromBytes;
 use bigdecimal::num_traits::ToBytes;
-use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
-use bitcoincore_rpc::bitcoin::hashes::Hash;
-use bitcoincore_rpc::bitcoin::{Block, Txid};
-use primitive_types::U256;
+use bitcoincore_rpc::bitcoin::Txid;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
@@ -45,27 +42,27 @@ impl IndexerEvent {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut data = match self {
             IndexerEvent::UpdateDelta(tx) => {
-                let mut data = serde_json::to_vec(&tx).unwrap();
+                let data = serde_json::to_vec(&tx).unwrap();
                 data
             }
             IndexerEvent::TxConfirmed(tx_id) => {
-                let mut data = tx_id.to_bytes();
+                let data = tx_id.to_bytes();
                 data
             }
             IndexerEvent::TxFromRestoreByTxId(tx_id) => {
-                let mut data = tx_id.to_bytes();
+                let data = tx_id.to_bytes();
                 data
             }
             IndexerEvent::TxRemoved(tx_id) => {
-                let mut data = tx_id.to_bytes();
+                let data = tx_id.to_bytes();
                 data
             }
             IndexerEvent::ReportHeight(height) => {
-                let mut data = height.to_le_bytes().to_vec();
+                let data = height.to_le_bytes().to_vec();
                 data
             }
             IndexerEvent::ReportReorg(txs) => {
-                let mut data = serde_json::to_vec(&txs).unwrap();
+                let data = serde_json::to_vec(&txs).unwrap();
                 data
             }
             _ => {

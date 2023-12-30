@@ -2,8 +2,7 @@ use crate::client::event::ClientEvent;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
-use crate::types::response::{AllBalanceResponse, GetDataResponse};
-use bitcoincore_rpc::bitcoin::Transaction;
+use crate::types::response::AllBalanceResponse;
 
 pub mod common;
 

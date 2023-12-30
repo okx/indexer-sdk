@@ -20,11 +20,11 @@ impl DB for MemoryDB {
     }
 
     fn get(&mut self, key: &[u8]) -> IndexerResult<Option<Vec<u8>>> {
-        let mut data = self.datas.borrow_mut();
+        let data = self.datas.borrow_mut();
         Ok(data.get(key).cloned())
     }
 
-    fn write_batch(&mut self, batch: WriteBatch, sync: bool) -> IndexerResult<()> {
+    fn write_batch(&mut self, batch: WriteBatch, _: bool) -> IndexerResult<()> {
         let mut data = self.datas.borrow_mut();
         batch.iter().for_each(|(k, v)| {
             if v.is_none() {
@@ -48,7 +48,7 @@ impl DB for MemoryDB {
         VF: Fn(Vec<u8>) -> Option<V>,
     {
         let mut ret = vec![];
-        let mut data = self.datas.borrow_mut();
+        let data = self.datas.borrow_mut();
         for (k, v) in data.iter() {
             if k.starts_with(prefix) {
                 let v = vf(v.clone());

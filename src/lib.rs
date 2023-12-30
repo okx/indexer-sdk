@@ -1,9 +1,6 @@
-use crate::configuration::base::{IndexerConfiguration, ZMQConfiguration};
 use crate::error::IndexerResult;
-use crate::factory::common::sync_create_and_start_processor;
 use async_channel::Sender;
 use log::{info, warn};
-use std::ops::DerefMut;
 use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task;
@@ -114,7 +111,7 @@ impl<T: HookComponent<Event = E> + Clone + 'static, E: Send + Sync + Clone + 'st
 
 #[async_trait::async_trait]
 pub trait HookComponent: Component {
-    async fn before_start(&mut self, sender: Sender<Self::Event>) -> IndexerResult<()> {
+    async fn before_start(&mut self, _: Sender<Self::Event>) -> IndexerResult<()> {
         Ok(())
     }
 
@@ -146,7 +143,7 @@ impl<T: HookComponent<Event = E> + Clone, E: Send + Sync + Clone + 'static> Hook
 impl<T: HookComponent<Event = E> + Clone, E: Send + Sync + Clone + 'static>
     ComponentTemplate<T, E>
 {
-    async fn on_start(&mut self, exit: watch::Receiver<()>) -> IndexerResult<()> {
+    async fn on_start(&mut self, _: watch::Receiver<()>) -> IndexerResult<()> {
         let tx = self.event_tx().unwrap();
         self.internal.before_start(tx).await?;
         let rx = self.rx.clone();
@@ -224,12 +221,9 @@ pub async fn wait_exit_signal() -> std::io::Result<()> {
 mod tests {
     use super::*;
     use crate::configuration::base::{IndexerConfiguration, ZMQConfiguration};
-    use crate::factory::common::{
-        async_create_and_start_processor, sync_create_and_start_processor,
-    };
-    use bitcoincore_rpc::{bitcoin, Auth, Client, Error, RpcApi};
+    use crate::factory::common::sync_create_and_start_processor;
+    use bitcoincore_rpc::{Auth, Client, RpcApi};
     use std::thread::sleep;
-    use tokio::sync::watch;
 
     #[test]
     pub fn test_notifier() {
@@ -243,6 +237,7 @@ mod tests {
                 zmq_topic: vec!["".to_string()],
             },
             net: Default::default(),
+            db_path: "./db".to_string(),
         });
         loop {
             let data = notifier.get();

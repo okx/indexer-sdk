@@ -1,10 +1,10 @@
 use crate::event::{AddressType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
-use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
+use bitcoincore_rpc::bitcoin::consensus::serialize;
 use bitcoincore_rpc::bitcoin::Transaction;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ClientEvent {
     Transaction(Transaction),
     GetHeight,
@@ -26,22 +26,9 @@ impl ClientEvent {
             ClientEvent::Transaction(tx) => {
                 let mut ret = serialize(tx);
                 ret.push(self.get_suffix());
-                // let vv = ret.clone();
-                // let cstr = loop {
-                //     match CString::new(&vv) {
-                //         Ok(cstr) => break cstr,
-                //         Err(err) => {
-                //             let idx = err.nul_position();
-                //             message = err.into_vec();
-                //             message.remove(idx);
-                //         }
-                //     }
-                // };
                 ret
             }
-            ClientEvent::GetHeight => {
-                vec![self.get_suffix()]
-            }
+            ClientEvent::GetHeight => self.get_suffix().to_le_bytes().to_vec(),
             ClientEvent::TxDroped(tx_id) => {
                 let mut ret = tx_id.to_bytes();
                 ret.push(self.get_suffix());
@@ -73,8 +60,8 @@ pub struct AddressTokenWrapper {
 impl Into<Option<IndexerEvent>> for RequestEvent {
     fn into(self) -> Option<IndexerEvent> {
         match self {
-            RequestEvent::GetBalance(address_type, token_type) => None,
-            RequestEvent::GetAllBalance(address_type) => None,
+            RequestEvent::GetBalance(_, _) => None,
+            RequestEvent::GetAllBalance(_) => None,
             RequestEvent::PushDelta(delta) => Some(IndexerEvent::UpdateDelta(delta)),
             RequestEvent::PushHeight(h) => Some(IndexerEvent::ReportHeight(h)),
         }

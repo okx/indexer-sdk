@@ -3,16 +3,14 @@ use crate::error::IndexerResult;
 use crate::event::{IndexerEvent, TxIdType};
 use crate::factory::common::create_client_from_configuration;
 use crate::{Component, HookComponent};
-use bitcoincore_rpc::bitcoin::consensus::{deserialize, Decodable};
+use bitcoincore_rpc::bitcoin::consensus::deserialize;
 use bitcoincore_rpc::bitcoin::hashes::Hash;
-use bitcoincore_rpc::bitcoin::{Block, BlockHash, Transaction, Txid};
-use bitcoincore_rpc::{bitcoin, RpcApi};
+use bitcoincore_rpc::bitcoin::{Block, BlockHash, Transaction};
+use bitcoincore_rpc::RpcApi;
 use log::{error, info, warn};
 use may::go;
-use std::str::FromStr;
-use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::thread::sleep;
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
 use tokio::task::JoinHandle;
@@ -92,7 +90,7 @@ impl ZeroMQNode {
             client: Arc::new(client),
         }
     }
-    async fn start(&self, exit: Receiver<()>, wg: AsyncWaitGroup) -> JoinHandle<()> {
+    async fn start(&self, _: Receiver<()>, wg: AsyncWaitGroup) -> JoinHandle<()> {
         let node = self.clone();
         let flag = self.flag.clone();
         tokio::task::spawn(async move {
@@ -254,7 +252,6 @@ impl ZeroMQNode {
 mod tests {
     use super::*;
     use crate::configuration::base::ZMQConfiguration;
-    use core::arch;
     use std::thread::sleep;
     use tokio::sync::watch;
 
@@ -266,10 +263,12 @@ mod tests {
                 zmq_topic: vec![],
             },
             net: Default::default(),
+            db_path: "./db".to_string(),
         };
-        let (tx, rx) = async_channel::unbounded();
+        let (tx, _) = async_channel::unbounded();
+        let wg = AsyncWaitGroup::new();
         let mut component =
-            ZeroMQComponent::new(config, tx.clone(), Arc::new(AtomicBool::new(true)));
+            ZeroMQComponent::new(wg, config, tx.clone(), Arc::new(AtomicBool::new(true)));
         let (exit_tx, exit_rx) = watch::channel(());
         let nodes = component.start(exit_rx.clone()).await.unwrap();
         for node in nodes {
@@ -292,10 +291,12 @@ mod tests {
                 zmq_topic: vec![],
             },
             net: Default::default(),
+            db_path: "./db".to_string(),
         };
-        let (tx, rx) = async_channel::unbounded();
+        let (tx, _) = async_channel::unbounded();
         let node = ZeroMQNode::new(config, tx, Arc::new(AtomicBool::new(true)));
-        let handler = node.start(exit_rx).await;
+        let wg = AsyncWaitGroup::new();
+        let handler = node.start(exit_rx, wg).await;
         handler.await.expect("TODO: panic message");
         sleep(Duration::from_secs(10000000000));
         drop(exit_tx)

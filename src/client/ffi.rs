@@ -1,6 +1,5 @@
-use crate::client::common::CommonClient;
 use crate::client::drect::DirectClient;
-use crate::client::event::{ClientEvent, RequestEvent};
+use crate::client::event::RequestEvent;
 use crate::client::SyncClient;
 use crate::configuration::base::{IndexerConfiguration, NetConfiguration, ZMQConfiguration};
 use crate::event::IndexerEvent;
@@ -10,7 +9,6 @@ use crate::storage::kv::KVStorageProcessor;
 use core::ffi::c_char;
 use log::{info, warn};
 use once_cell::sync::Lazy;
-use rustc_serialize::json;
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::ops::DerefMut;
@@ -31,7 +29,7 @@ fn get_option_notifier() -> &'static mut Option<DirectClient<KVStorageProcessor<
     }
 }
 
-#[repr(C)]
+#[repr(C, packed)]
 pub struct ByteArray {
     data: *const u8,
     length: usize,
@@ -69,30 +67,34 @@ pub extern "C" fn start_processor() {
 #[no_mangle]
 pub extern "C" fn get_event() -> ByteArray {
     let notifier = get_notifier();
-    let binding = notifier.get();
-    info!("receive ffi send data: {:?}", &binding);
-    let ptr = binding.as_ptr();
+    let binding = notifier.get().into_boxed_slice();
+    let l = binding.len();
+    info!("receive ffi send data: {:?},len:{:?}", &binding, l);
+    let ptr = Box::into_raw(binding) as *const u8;
+    std::mem::forget(ptr);
     ByteArray {
         data: ptr,
-        length: binding.len(),
+        length: l,
     }
 }
+
+// fn bytes_to_byte_array(data: &[u8]) -> ByteArray {
+//     let ptr = data.as_ptr();
+//     // let ptr = Box::into_raw(Box::new(data)) as *const u8;
+//     std::mem::forget(ptr);
+//     ByteArray {
+//         data: ptr,
+//         length: data.len(),
+//     }
+// }
 
 #[no_mangle]
 pub extern "C" fn js_get_event() -> *mut c_char {
     let notifier = get_notifier();
     let byte_data = notifier.get();
-    info!("js  ffi send data: {:?}", &byte_data);
-    let cstr = CStr::from_bytes_with_nul(&byte_data);
-    if let Err(_) = cstr {
-        info!("cstr failed");
-        let cstr = CString::new(byte_data).unwrap();
-        let c_string_ptr = cstr.into_raw();
-        return c_string_ptr;
-    }
-    let cstr = cstr.unwrap();
-    let c_string = CString::new(cstr.to_bytes()).unwrap();
-    let c_string_ptr = c_string.into_raw();
+    let byte_data = hex::encode(&byte_data);
+    let cstr = CString::new(byte_data).unwrap();
+    let c_string_ptr = cstr.into_raw();
     return c_string_ptr;
 }
 
@@ -100,7 +102,7 @@ pub extern "C" fn js_get_event() -> *mut c_char {
 pub extern "C" fn free_bytes(ptr: *mut c_char) {
     unsafe {
         if !ptr.is_null() {
-            CString::from_raw(ptr);
+            let _ = CString::from_raw(ptr);
         }
     }
 }
@@ -109,7 +111,7 @@ pub extern "C" fn free_bytes(ptr: *mut c_char) {
 pub extern "C" fn push_event(data: *const u8, len: usize) {
     let bytes = unsafe { std::slice::from_raw_parts(data, len) };
     let event = RequestEvent::from_bytes(bytes);
-    info!("receive ffi event: {:?}", &event);
+    info!("receive ffi event from indexer: {:?}", &event);
     let index_event: Option<IndexerEvent> = event.clone().into();
     if index_event.is_none() {
         warn!("receive unknown event: {:?}", &event);
@@ -121,36 +123,51 @@ pub extern "C" fn push_event(data: *const u8, len: usize) {
 }
 //
 #[no_mangle]
-pub extern "C" fn get_data(data: *const u8, len: usize) -> ByteArray {
-    let bytes = unsafe { std::slice::from_raw_parts(data, len) };
-    let event = RequestEvent::from_bytes(bytes);
+pub extern "C" fn get_data(ptr: *mut c_char) -> *mut c_char {
+    let str = unsafe {
+        assert!(!ptr.is_null());
+        CStr::from_ptr(ptr)
+    }
+    .to_str()
+    .unwrap();
+    let bytes = hex::decode(str).unwrap();
+    let event = RequestEvent::from_bytes(&bytes);
+    info!("receive ffi get data from indexer: {:?}", &event);
     let notifier = get_notifier();
     match event {
         RequestEvent::GetAllBalance(address) => {
             let ret = notifier.get_all_balance(address).unwrap();
             let ret = serde_json::to_vec(&ret).unwrap();
-            return bytes_to_byte_array(&ret);
+            return return_hex_str_point(&ret);
         }
         RequestEvent::GetBalance(address, token) => {
             let ret = notifier.get_balance(address, token).unwrap();
             let ret = &ret.to_bytes();
-            return bytes_to_byte_array(ret);
+            return return_hex_str_point(&ret);
         }
         _ => {
             warn!("receive unknown event: {:?}", &event);
-            return ByteArray {
-                data: std::ptr::null(),
-                length: 0,
-            };
+            return return_hex_str_point(&vec![]);
         }
     }
 }
 
-fn bytes_to_byte_array(data: &[u8]) -> ByteArray {
-    let ptr = data.as_ptr();
-    std::mem::forget(ptr);
-    ByteArray {
-        data: ptr,
-        length: data.len(),
-    }
+fn return_hex_str_point(data: &[u8]) -> *mut c_char {
+    let byte_data = hex::encode(&data);
+    let cstr = CString::new(byte_data).unwrap();
+    let c_string_ptr = cstr.into_raw();
+    c_string_ptr
+}
+
+#[test]
+pub fn test_asd() {
+    use crate::client::event::AddressTokenWrapper;
+    let a = AddressTokenWrapper {
+        address: Default::default(),
+        token: Default::default(),
+    };
+    let mut a = serde_json::to_vec(&a).unwrap();
+    a.push(1);
+    let v = hex::encode(&a);
+    println!("{}", v);
 }

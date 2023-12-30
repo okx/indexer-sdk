@@ -5,16 +5,13 @@ use crate::component::zmq::component::ZeroMQComponent;
 use crate::configuration::base::IndexerConfiguration;
 use crate::processor::common::IndexerProcessorImpl;
 use crate::storage::db::level_db::LevelDB;
-use crate::storage::db::memory::MemoryDB;
 use crate::storage::kv::KVStorageProcessor;
 use crate::{Component, ComponentTemplate};
 use bitcoincore_rpc::{Auth, Client};
-use core::arch;
 use log::error;
-use std::cell::RefCell;
 use std::process::exit;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::{panic, thread};
 use tokio::runtime;
 use tokio::runtime::Runtime;
@@ -111,7 +108,7 @@ pub(crate) fn create_client_from_configuration(
 pub fn sync_create_and_start_processor(
     origin_cfg: IndexerConfiguration,
 ) -> DirectClient<KVStorageProcessor<LevelDB>> {
-    let (tx, rx) = watch::channel(());
+    let (_, rx) = watch::channel(());
     let rt = Runtime::new().unwrap();
     let ret = rt.block_on(async_create_and_start_processor(rx, origin_cfg));
     thread::spawn(move || {

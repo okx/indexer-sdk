@@ -1,5 +1,3 @@
-use log::info;
-
 #[derive(Clone, Debug)]
 pub struct IndexerConfiguration {
     pub mq: ZMQConfiguration,
