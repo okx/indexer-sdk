@@ -134,4 +134,10 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
     fn rx(&self) -> Receiver<ClientEvent> {
         self.base.rx.clone()
     }
+
+    fn set(&mut self, tx_id: &TxIdType, key: &[u8], value: Vec<u8>) -> IndexerResult<()> {
+        Ok(self
+            .rt
+            .block_on(async { self.storage.simple_set(tx_id, key, value).await })?)
+    }
 }

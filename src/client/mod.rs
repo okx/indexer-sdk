@@ -46,4 +46,6 @@ pub trait SyncClient {
     fn update_delta(&mut self, result: TransactionDelta) -> IndexerResult<()>;
 
     fn rx(&self) -> async_channel::Receiver<ClientEvent>;
+
+    fn set(&mut self, tx_id: &TxIdType, key: &[u8], value: Vec<u8>) -> IndexerResult<()>;
 }

@@ -6,6 +6,7 @@ pub enum KeyPrefix {
     TransactionIndexMap, // tx_id -> index
     AddressTokenBalance, // address|token -> balance
     SeenTx,              // tx_id -> timestamp
+    PureSet,             // tx_id|key -> value
 }
 pub enum DeltaStatus {
     Default,
@@ -40,6 +41,7 @@ impl KeyPrefix {
             KeyPrefix::AddressTokenBalance => b"c",
             KeyPrefix::TransactionIndexMap => b"d",
             KeyPrefix::SeenTx => b"e",
+            KeyPrefix::PureSet => b"f",
         }
     }
     pub fn get_suffix<'a>(&self, key: &'a [u8]) -> &'a [u8] {
@@ -74,6 +76,12 @@ impl KeyPrefix {
     pub fn build_address_balance_prefix_key(address: &AddressType) -> Vec<u8> {
         let mut ret = Self::AddressTokenBalance.get_prefix().to_vec();
         ret.extend_from_slice(address.to_bytes().as_slice());
+        ret
+    }
+    pub fn build_pure_set_key(tx_id: &TxIdType, key: &[u8]) -> Vec<u8> {
+        let mut ret = Self::PureSet.get_prefix().to_vec();
+        ret.extend_from_slice(tx_id.to_bytes().as_slice());
+        ret.extend_from_slice(&key);
         ret
     }
     pub fn build_seen_tx_key(tx_id: &TxIdType) -> Vec<u8> {

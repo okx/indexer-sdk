@@ -39,6 +39,15 @@ pub trait StorageProcessor: Send + Sync {
     async fn is_tx_executed(&mut self, tx_id: &TxIdType) -> IndexerResult<bool>;
 
     async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<HashMap<TxIdType, i64>>;
+
+    async fn simple_set(
+        &mut self,
+        tx_id: &TxIdType,
+        key: &[u8],
+        value: Vec<u8>,
+    ) -> IndexerResult<()>;
+
+    async fn simple_get(&mut self, tx_id: &TxIdType, key: &[u8]) -> IndexerResult<Option<Vec<u8>>>;
 }
 
 #[derive(Clone, Debug)]
@@ -98,5 +107,18 @@ impl StorageProcessor for Box<dyn StorageProcessor> {
         address: &AddressType,
     ) -> IndexerResult<Vec<AllBalanceResponse>> {
         self.as_mut().get_all_balance(address).await
+    }
+
+    async fn simple_set(
+        &mut self,
+        tx_id: &TxIdType,
+        key: &[u8],
+        value: Vec<u8>,
+    ) -> IndexerResult<()> {
+        self.as_mut().simple_set(tx_id, key, value).await
+    }
+
+    async fn simple_get(&mut self, tx_id: &TxIdType, key: &[u8]) -> IndexerResult<Option<Vec<u8>>> {
+        self.as_mut().simple_get(tx_id, key).await
     }
 }
