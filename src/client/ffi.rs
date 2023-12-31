@@ -91,7 +91,7 @@ pub extern "C" fn get_event() -> ByteArray {
 #[no_mangle]
 pub extern "C" fn js_get_event() -> *mut c_char {
     let notifier = get_notifier();
-    let byte_data = notifier.block_get();
+    let byte_data = notifier.get();
     let byte_data = hex::encode(&byte_data);
     let cstr = CString::new(byte_data).unwrap();
     let c_string_ptr = cstr.into_raw();
