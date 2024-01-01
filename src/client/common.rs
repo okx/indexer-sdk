@@ -1,5 +1,6 @@
 use crate::client::event::ClientEvent;
 use crate::client::Client;
+use crate::component::waitsync::event::WaitSyncEvent;
 use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
@@ -49,7 +50,7 @@ impl Client for CommonClient {
 
     async fn report_height(&self, height: u32) -> IndexerResult<()> {
         self.tx
-            .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::ReportHeight(
+            .send_blocking(DispatchEvent::WaitSyncEvent(WaitSyncEvent::ReportHeight(
                 height,
             )))
             .unwrap();
