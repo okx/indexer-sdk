@@ -1,14 +1,15 @@
-mod event;
+pub mod event;
 
 use crate::client::event::ClientEvent;
 use crate::component::waitsync::event::WaitSyncEvent;
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
 use crate::event::IndexerEvent;
-use crate::{Component, HookComponent};
+use crate::{Component, Event, HookComponent};
 use async_channel::Sender;
 use bitcoincore_rpc::RpcApi;
 use log::{error, info};
+use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
@@ -42,20 +43,17 @@ impl WaitIndexerCatchupComponent {
 }
 
 #[async_trait::async_trait]
-impl Component for WaitIndexerCatchupComponent {
-    type Event = WaitSyncEvent;
-    type Configuration = IndexerConfiguration;
-    type Inner = Self;
-
-    fn inner(&mut self) -> &mut Self::Inner {
-        unreachable!()
-    }
-
-    async fn handle_event(&mut self, event: &Self::Event) -> IndexerResult<()> {
+impl Component<Arc<Box<dyn Event>>> for WaitIndexerCatchupComponent {
+    async fn handle_event(&mut self, event: &Arc<Box<dyn Event>>) -> IndexerResult<()> {
+        let event = event.downcast_ref::<WaitSyncEvent>().unwrap();
         match event {
             WaitSyncEvent::IndexerOrg(wg) => self.do_handle_indexer_org(wg).await?,
         }
         Ok(())
+    }
+
+    async fn interest(&self, event: &Arc<Box<dyn Event>>) -> bool {
+        event.is::<WaitSyncEvent>()
     }
 }
 impl WaitIndexerCatchupComponent {
@@ -64,8 +62,9 @@ impl WaitIndexerCatchupComponent {
     }
 }
 
-impl HookComponent for WaitIndexerCatchupComponent {
-    async fn before_start(&mut self, _: Sender<Self::Event>) -> IndexerResult<()> {
+#[async_trait::async_trait]
+impl HookComponent<Arc<Box<dyn Event>>> for WaitIndexerCatchupComponent {
+    async fn before_start(&mut self, _: Sender<Arc<Box<dyn Event>>>) -> IndexerResult<()> {
         let grap_rx = self.grap_rx.clone();
         let grap_tx = self.grap_tx.clone();
         loop {
@@ -98,6 +97,7 @@ impl HookComponent for WaitIndexerCatchupComponent {
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
         self.wg.done();
+        Ok(())
     }
 }
 

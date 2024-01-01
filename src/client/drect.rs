@@ -1,6 +1,7 @@
 use crate::client::common::CommonClient;
 use crate::client::event::ClientEvent;
 use crate::client::{Client, SyncClient};
+use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::storage::StorageProcessor;
@@ -42,7 +43,7 @@ impl<T: StorageProcessor + Clone> Client for DirectClient<T> {
         self.base.get_event().await
     }
 
-    async fn push_event(&self, event: IndexerEvent) -> IndexerResult<()> {
+    async fn push_event(&self, event: DispatchEvent) -> IndexerResult<()> {
         self.base.push_event(event).await
     }
 
@@ -91,7 +92,9 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
     fn report_height(&self, height: u32) -> IndexerResult<()> {
         self.base
             .tx
-            .send_blocking(IndexerEvent::ReportHeight(height))
+            .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::ReportHeight(
+                height,
+            )))
             .unwrap();
         Ok(())
     }
@@ -99,13 +102,16 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
     fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()> {
         self.base
             .tx
-            .send_blocking(IndexerEvent::ReportReorg(txs))
+            .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::ReportReorg(txs)))
             .unwrap();
         Ok(())
     }
 
     fn push_event(&self, event: IndexerEvent) -> IndexerResult<()> {
-        self.base.tx.send_blocking(event).unwrap();
+        self.base
+            .tx
+            .send_blocking(DispatchEvent::IndexerEvent(event))
+            .unwrap();
         Ok(())
     }
 

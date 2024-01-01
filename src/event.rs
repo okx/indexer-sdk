@@ -1,4 +1,5 @@
 use crate::types::delta::TransactionDelta;
+use crate::Event;
 use bigdecimal::num_bigint::{BigInt, ToBigInt};
 use bigdecimal::num_traits::FromBytes;
 use bigdecimal::num_traits::ToBytes;
@@ -25,6 +26,7 @@ pub enum IndexerEvent {
 
     ReportReorg(Vec<TxIdType>),
 }
+impl Event for IndexerEvent {}
 impl IndexerEvent {
     pub fn get_suffix(&self) -> u8 {
         match self {

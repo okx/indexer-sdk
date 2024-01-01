@@ -61,14 +61,14 @@ pub async fn async_create_and_start_processor(
         client.clone(),
         flag.clone(),
     ));
-    let indexer_tx = processor_wrapper.event_tx().unwrap();
-    let indexer_rx = processor_wrapper.grap_rx();
-    let mut wait_cachup = WaitIndexerCatchupComponent::new(
-        catch_up_wg,
-        client.clone(),
-        notify_tx.clone(),
-        indexer_rx.clone(),
-    );
+    let indexer_tx = processor_wrapper.event_tx();
+    // let indexer_rx = processor_wrapper.grap_rx();
+    // let mut wait_cachup = WaitIndexerCatchupComponent::new(
+    //     catch_up_wg,
+    //     client.clone(),
+    //     notify_tx.clone(),
+    //     indexer_rx.clone(),
+    // );
 
     let mut ret = vec![];
     let mut zmq_wrapper = ComponentTemplate::new(ZeroMQComponent::new(
@@ -78,8 +78,8 @@ pub async fn async_create_and_start_processor(
         flag.clone(),
     ));
 
-    wait_cachup.init(origin_cfg.clone()).await.unwrap();
-    ret.extend(wait_cachup.start(origin_exit.clone()).await.unwrap());
+    // wait_cachup.init(origin_cfg.clone()).await.unwrap();
+    // ret.extend(wait_cachup.start(origin_exit.clone()).await.unwrap());
 
     zmq_wrapper.init(origin_cfg.clone()).await.unwrap();
     ret.extend(zmq_wrapper.start(origin_exit.clone()).await.unwrap());

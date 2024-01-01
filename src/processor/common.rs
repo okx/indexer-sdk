@@ -1,15 +1,16 @@
 use crate::client::event::ClientEvent;
-use crate::configuration::base::IndexerConfiguration;
+use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
 use crate::storage::prefix::DeltaStatus;
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
-use crate::{Component, HookComponent, IndexProcessor};
+use crate::{Component, Event, HookComponent, IndexProcessor};
 use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
 use bitcoincore_rpc::bitcoin::{Transaction, Txid};
 use bitcoincore_rpc::RpcApi;
 use log::{error, info};
+use std::any::Any;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use wg::AsyncWaitGroup;
@@ -47,10 +48,10 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
 }
 
 #[async_trait::async_trait]
-impl<T: StorageProcessor> HookComponent for IndexerProcessorImpl<T> {
+impl<T: StorageProcessor> HookComponent<DispatchEvent> for IndexerProcessorImpl<T> {
     async fn before_start(
         &mut self,
-        sender: async_channel::Sender<IndexerEvent>,
+        sender: async_channel::Sender<DispatchEvent>,
     ) -> IndexerResult<()> {
         self.wg.wait().await;
         self.restore_from_mempool(sender).await?;
@@ -59,27 +60,28 @@ impl<T: StorageProcessor> HookComponent for IndexerProcessorImpl<T> {
 }
 
 #[async_trait::async_trait]
-impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
-    type Event = IndexerEvent;
-    type Configuration = IndexerConfiguration;
-    type Inner = Self;
-
-    fn inner(&mut self) -> &mut Self::Inner {
-        unreachable!()
+impl<T: StorageProcessor> Component<DispatchEvent> for IndexerProcessorImpl<T> {
+    async fn handle_event(&mut self, event: &DispatchEvent) -> IndexerResult<()> {
+        todo!()
+        // let event = event.downcast_ref::<IndexerEvent>().unwrap();
+        // if let Err(e) = self.do_handle_event(event).await {
+        //     error!("handle_event error:{:?}", e)
+        // }
+        // Ok(())
     }
 
-    async fn handle_event(&mut self, event: &Self::Event) -> IndexerResult<()> {
-        if let Err(e) = self.do_handle_event(event).await {
-            error!("handle_event error:{:?}", e)
+    async fn interest(&self, event: &DispatchEvent) -> bool {
+        match event {
+            DispatchEvent::IndexerEvent(_) => true,
+            _ => false,
         }
-        Ok(())
     }
 }
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     async fn restore_from_mempool(
         &mut self,
-        sender: async_channel::Sender<IndexerEvent>,
+        sender: async_channel::Sender<DispatchEvent>,
     ) -> IndexerResult<()> {
         self.do_handle_sync_mempool(sender).await?;
         Ok(())
@@ -87,39 +89,39 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
 
     async fn do_handle_sync_mempool(
         &mut self,
-        tx: async_channel::Sender<IndexerEvent>,
+        tx: async_channel::Sender<DispatchEvent>,
     ) -> IndexerResult<()> {
-        let all_unconsumed = self.storage.get_all_un_consumed_txs().await?;
-        info!("all unconsumed txs:{:?}", all_unconsumed);
-        let txs = {
-            // sort by timestamp to execute tx in order
-            let txs = self.btc_client.get_raw_mempool_verbose()?;
-            let mut append = vec![];
-            for (k, ts) in &all_unconsumed {
-                let tx_id: Txid = k.clone().into();
-                if !txs.contains_key(&tx_id) {
-                    append.push((k.clone(), *ts));
-                }
-            }
-            let mut sorted_pairs: Vec<_> = txs
-                .into_iter()
-                .map(|(tx_id, info)| {
-                    let tx_id: TxIdType = tx_id.into();
-                    (tx_id, info.time as i64)
-                })
-                .collect();
-            sorted_pairs.extend_from_slice(append.as_slice());
-            sorted_pairs.sort_by(|a, b| a.1.cmp(&b.1));
-            sorted_pairs
-        };
-
-        for (tx_id, _) in txs {
-            info!("get tx from mempool or db:{:?}", &tx_id);
-            tx.send(IndexerEvent::TxFromRestoreByTxId(tx_id))
-                .await
-                .unwrap();
-        }
-        self.flag.store(true, Ordering::Relaxed);
+        // let all_unconsumed = self.storage.get_all_un_consumed_txs().await?;
+        // info!("all unconsumed txs:{:?}", all_unconsumed);
+        // let txs = {
+        //     // sort by timestamp to execute tx in order
+        //     let txs = self.btc_client.get_raw_mempool_verbose()?;
+        //     let mut append = vec![];
+        //     for (k, ts) in &all_unconsumed {
+        //         let tx_id: Txid = k.clone().into();
+        //         if !txs.contains_key(&tx_id) {
+        //             append.push((k.clone(), *ts));
+        //         }
+        //     }
+        //     let mut sorted_pairs: Vec<_> = txs
+        //         .into_iter()
+        //         .map(|(tx_id, info)| {
+        //             let tx_id: TxIdType = tx_id.into();
+        //             (tx_id, info.time as i64)
+        //         })
+        //         .collect();
+        //     sorted_pairs.extend_from_slice(append.as_slice());
+        //     sorted_pairs.sort_by(|a, b| a.1.cmp(&b.1));
+        //     sorted_pairs
+        // };
+        //
+        // for (tx_id, _) in txs {
+        //     info!("get tx from mempool or db:{:?}", &tx_id);
+        //     tx.send(IndexerEvent::TxFromRestoreByTxId(tx_id))
+        //         .await
+        //         .unwrap();
+        // }
+        // self.flag.store(true, Ordering::Relaxed);
 
         Ok(())
     }
@@ -238,4 +240,4 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
 }
 
 #[async_trait::async_trait]
-impl<T: StorageProcessor> IndexProcessor for IndexerProcessorImpl<T> {}
+impl<T: StorageProcessor> IndexProcessor<DispatchEvent> for IndexerProcessorImpl<T> {}
