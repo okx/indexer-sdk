@@ -1,15 +1,19 @@
+mod event;
+
 use crate::client::event::ClientEvent;
+use crate::component::waitsync::event::WaitSyncEvent;
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
 use crate::event::IndexerEvent;
-use crate::Component;
+use crate::{Component, HookComponent};
+use async_channel::Sender;
 use bitcoincore_rpc::RpcApi;
 use log::{error, info};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch::Receiver;
 use tokio::task::JoinHandle;
-use wg::AsyncWaitGroup;
+use wg::{AsyncWaitGroup, WaitGroup};
 
 #[derive(Clone)]
 pub struct WaitIndexerCatchupComponent {
@@ -39,7 +43,7 @@ impl WaitIndexerCatchupComponent {
 
 #[async_trait::async_trait]
 impl Component for WaitIndexerCatchupComponent {
-    type Event = IndexerEvent;
+    type Event = WaitSyncEvent;
     type Configuration = IndexerConfiguration;
     type Inner = Self;
 
@@ -47,15 +51,21 @@ impl Component for WaitIndexerCatchupComponent {
         unreachable!()
     }
 
-    async fn start(&mut self, _: Receiver<()>) -> IndexerResult<Vec<JoinHandle<()>>> {
-        let node = self.clone();
-        Ok(vec![tokio::task::spawn(async move {
-            node.do_start().await;
-        })])
+    async fn handle_event(&mut self, event: &Self::Event) -> IndexerResult<()> {
+        match event {
+            WaitSyncEvent::IndexerOrg(wg) => self.do_handle_indexer_org(wg).await?,
+        }
+        Ok(())
     }
 }
 impl WaitIndexerCatchupComponent {
-    async fn do_start(&self) {
+    async fn do_handle_indexer_org(&mut self, event: &WaitGroup) -> IndexerResult<()> {
+        Ok(())
+    }
+}
+
+impl HookComponent for WaitIndexerCatchupComponent {
+    async fn before_start(&mut self, _: Sender<Self::Event>) -> IndexerResult<()> {
         let grap_rx = self.grap_rx.clone();
         let grap_tx = self.grap_tx.clone();
         loop {
