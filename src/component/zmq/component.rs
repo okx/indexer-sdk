@@ -47,7 +47,10 @@ impl Component<DispatchEvent> for ZeroMQComponent {
     }
 
     async fn interest(&self, event: &DispatchEvent) -> bool {
-        todo!()
+        match event {
+            DispatchEvent::ZeroMQEvent(_) => true,
+            _ => false,
+        }
     }
 }
 

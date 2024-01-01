@@ -2,7 +2,7 @@ pub mod event;
 
 use crate::client::event::ClientEvent;
 use crate::component::waitsync::event::WaitSyncEvent;
-use crate::configuration::base::IndexerConfiguration;
+use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;
 use crate::event::IndexerEvent;
 use crate::{Component, Event, HookComponent};
@@ -12,8 +12,6 @@ use log::{error, info};
 use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::watch::Receiver;
-use tokio::task::JoinHandle;
 use wg::{AsyncWaitGroup, WaitGroup};
 
 #[derive(Clone)]
@@ -43,17 +41,17 @@ impl WaitIndexerCatchupComponent {
 }
 
 #[async_trait::async_trait]
-impl Component<Arc<Box<dyn Event>>> for WaitIndexerCatchupComponent {
-    async fn handle_event(&mut self, event: &Arc<Box<dyn Event>>) -> IndexerResult<()> {
-        let event = event.downcast_ref::<WaitSyncEvent>().unwrap();
+impl Component<DispatchEvent> for WaitIndexerCatchupComponent {
+    async fn handle_event(&mut self, event: &DispatchEvent) -> IndexerResult<()> {
+        let event = event.get_waitsync_event().unwrap();
         match event {
             WaitSyncEvent::IndexerOrg(wg) => self.do_handle_indexer_org(wg).await?,
         }
         Ok(())
     }
 
-    async fn interest(&self, event: &Arc<Box<dyn Event>>) -> bool {
-        event.is::<WaitSyncEvent>()
+    async fn interest(&self, event: &DispatchEvent) -> bool {
+        event.get_waitsync_event().is_some()
     }
 }
 impl WaitIndexerCatchupComponent {
@@ -63,8 +61,8 @@ impl WaitIndexerCatchupComponent {
 }
 
 #[async_trait::async_trait]
-impl HookComponent<Arc<Box<dyn Event>>> for WaitIndexerCatchupComponent {
-    async fn before_start(&mut self, _: Sender<Arc<Box<dyn Event>>>) -> IndexerResult<()> {
+impl HookComponent<DispatchEvent> for WaitIndexerCatchupComponent {
+    async fn before_start(&mut self, _: Sender<DispatchEvent>) -> IndexerResult<()> {
         let grap_rx = self.grap_rx.clone();
         let grap_tx = self.grap_tx.clone();
         loop {
