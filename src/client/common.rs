@@ -4,9 +4,7 @@ use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
-use crate::Event;
 use log::debug;
-use std::sync::Arc;
 
 #[repr(C)]
 #[derive(Clone)]

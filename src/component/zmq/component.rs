@@ -1,4 +1,3 @@
-use crate::component::zmq::event::ZeroMQEvent;
 use crate::configuration::base::IndexerConfiguration;
 use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;

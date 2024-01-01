@@ -2,17 +2,32 @@ pub mod event;
 
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
-use crate::{Component, Event};
+use crate::{Event, HookComponent};
 use std::any::Any;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 pub struct Dispatcher<E: Event + Clone> {
-    pub components: Vec<Box<dyn Component<E>>>,
-    rx: async_channel::Receiver<Box<dyn Any + Send + Sync>>,
-    tx: async_channel::Sender<Box<dyn Any + Send + Sync>>,
+    pub components: Vec<Box<dyn HookComponent<E>>>,
+    rx: async_channel::Receiver<E>,
+    tx: async_channel::Sender<E>,
 }
 
+impl<E: Event + Clone> Default for Dispatcher<E> {
+    fn default() -> Self {
+        let (tx, rx) = async_channel::unbounded();
+        Self {
+            components: vec![],
+            rx,
+            tx,
+        }
+    }
+}
+impl<E: Event + Clone> Dispatcher<E> {
+    pub fn tx(&self) -> async_channel::Sender<E> {
+        self.tx.clone()
+    }
+}
 impl<E: Event + Clone> Dispatcher<E> {
     pub async fn init(&mut self, config: IndexerConfiguration) -> IndexerResult<()> {
         for component in self.components.iter_mut() {
@@ -20,7 +35,7 @@ impl<E: Event + Clone> Dispatcher<E> {
         }
         Ok(())
     }
-    pub fn register_component(&mut self, component: Box<dyn Component<E>>) {
+    pub fn register_component(&mut self, component: Box<dyn HookComponent<E>>) {
         self.components.push(component);
     }
 
@@ -48,7 +63,9 @@ impl<E: Event + Clone> Dispatcher<E> {
                 event = self.rx.recv() => {
                     if let Ok(event) = event {
                         for component in self.components.iter_mut() {
-
+                            if component.interest(&event).await{
+                                component.push_event(&event).await.unwrap();
+                            }
                         }
                         // for component in self.components.iter_mut() {
                         //     if component.interest(&event) {
@@ -61,3 +78,6 @@ impl<E: Event + Clone> Dispatcher<E> {
         }
     }
 }
+
+#[test]
+pub fn test_asd() {}

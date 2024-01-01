@@ -1,9 +1,8 @@
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
-use async_channel::Sender;
+use async_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
 use log::{info, warn};
-use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch;
@@ -110,7 +109,7 @@ impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> Component<E>
 
 #[async_trait::async_trait]
 pub trait HookComponent<E: Clone + Event>: Component<E> {
-    async fn before_start(&mut self, _: Sender<E>) -> IndexerResult<()> {
+    async fn before_start(&mut self, _: Sender<E>, _: Receiver<E>) -> IndexerResult<()> {
         Ok(())
     }
 
@@ -125,8 +124,12 @@ pub trait HookComponent<E: Clone + Event>: Component<E> {
 
 #[async_trait::async_trait]
 impl<T: HookComponent<E> + Clone, E: Clone + Event> HookComponent<E> for ComponentTemplate<T, E> {
-    async fn before_start(&mut self, sender: Sender<E>) -> IndexerResult<()> {
-        self.internal.before_start(sender).await
+    async fn before_start(
+        &mut self,
+        sender: Sender<E>,
+        receiver: Receiver<E>,
+    ) -> IndexerResult<()> {
+        self.internal.before_start(sender, receiver).await
     }
 
     fn interval(&self) -> Option<Duration> {
@@ -140,7 +143,8 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> HookComponent<E> for Compone
 impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
     async fn on_start(&mut self, _: watch::Receiver<()>) -> IndexerResult<()> {
         let tx = self.event_tx();
-        self.internal.before_start(tx).await?;
+        let rx = self.rx.clone();
+        self.internal.before_start(tx, rx).await?;
         let rx = self.rx.clone();
         let interval = self.interval();
         if interval.is_none() {
