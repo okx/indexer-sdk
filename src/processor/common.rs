@@ -1,5 +1,5 @@
 use crate::client::event::ClientEvent;
-use crate::configuration::base::IndexerConfiguration;
+use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
 use crate::storage::prefix::DeltaStatus;
@@ -47,10 +47,11 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
 }
 
 #[async_trait::async_trait]
-impl<T: StorageProcessor> HookComponent for IndexerProcessorImpl<T> {
+impl<T: StorageProcessor> HookComponent<DispatchEvent> for IndexerProcessorImpl<T> {
     async fn before_start(
         &mut self,
-        sender: async_channel::Sender<IndexerEvent>,
+        sender: async_channel::Sender<DispatchEvent>,
+        _: async_channel::Receiver<DispatchEvent>,
     ) -> IndexerResult<()> {
         self.wg.wait().await;
         self.restore_from_mempool(sender).await?;
@@ -59,27 +60,24 @@ impl<T: StorageProcessor> HookComponent for IndexerProcessorImpl<T> {
 }
 
 #[async_trait::async_trait]
-impl<T: StorageProcessor> Component for IndexerProcessorImpl<T> {
-    type Event = IndexerEvent;
-    type Configuration = IndexerConfiguration;
-    type Inner = Self;
-
-    fn inner(&mut self) -> &mut Self::Inner {
-        unreachable!()
-    }
-
-    async fn handle_event(&mut self, event: &Self::Event) -> IndexerResult<()> {
+impl<T: StorageProcessor> Component<DispatchEvent> for IndexerProcessorImpl<T> {
+    async fn handle_event(&mut self, event: &DispatchEvent) -> IndexerResult<()> {
+        let event = event.get_indexer_event().unwrap();
         if let Err(e) = self.do_handle_event(event).await {
             error!("handle_event error:{:?}", e)
         }
         Ok(())
+    }
+
+    async fn interest(&self, event: &DispatchEvent) -> bool {
+        event.get_indexer_event().is_some()
     }
 }
 
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     async fn restore_from_mempool(
         &mut self,
-        sender: async_channel::Sender<IndexerEvent>,
+        sender: async_channel::Sender<DispatchEvent>,
     ) -> IndexerResult<()> {
         self.do_handle_sync_mempool(sender).await?;
         Ok(())
@@ -87,7 +85,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
 
     async fn do_handle_sync_mempool(
         &mut self,
-        tx: async_channel::Sender<IndexerEvent>,
+        tx: async_channel::Sender<DispatchEvent>,
     ) -> IndexerResult<()> {
         let all_unconsumed = self.storage.get_all_un_consumed_txs().await?;
         info!("all unconsumed txs:{:?}", all_unconsumed);
@@ -115,9 +113,11 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
 
         for (tx_id, _) in txs {
             info!("get tx from mempool or db:{:?}", &tx_id);
-            tx.send(IndexerEvent::TxFromRestoreByTxId(tx_id))
-                .await
-                .unwrap();
+            tx.send(DispatchEvent::IndexerEvent(
+                IndexerEvent::TxFromRestoreByTxId(tx_id),
+            ))
+            .await
+            .unwrap();
         }
         self.flag.store(true, Ordering::Relaxed);
 
@@ -238,4 +238,4 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
 }
 
 #[async_trait::async_trait]
-impl<T: StorageProcessor> IndexProcessor for IndexerProcessorImpl<T> {}
+impl<T: StorageProcessor> IndexProcessor<DispatchEvent> for IndexerProcessorImpl<T> {}

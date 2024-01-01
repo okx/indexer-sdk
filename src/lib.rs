@@ -1,6 +1,10 @@
+use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
-use async_channel::Sender;
+use async_channel::{Receiver, Sender};
+use downcast_rs::{impl_downcast, Downcast};
 use log::{info, warn};
+use std::fmt::Debug;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task;
@@ -9,6 +13,7 @@ use tokio::task::JoinHandle;
 pub mod client;
 pub mod component;
 pub mod configuration;
+pub mod dispatcher;
 pub mod error;
 pub mod event;
 pub mod factory;
@@ -20,18 +25,24 @@ pub mod types;
 pub struct IndexerContext {}
 
 #[async_trait::async_trait]
-pub trait IndexProcessor: Component {}
+pub trait IndexProcessor<T: Event + Clone>: Component<T> {}
+
+pub trait Event: Downcast + Send + Sync + Debug {
+    fn is_async(&self) -> bool {
+        true
+    }
+}
+impl_downcast!(Event);
+
+impl Event for Arc<Box<dyn Event>> {}
 
 #[async_trait::async_trait]
-pub trait Component: Send + Sync {
-    type Event: Send + Sync + Clone;
+pub trait Component<T: Event + Clone>: Send + Sync {
+    fn component_name(&self) -> String {
+        std::any::type_name::<Self>().to_string()
+    }
 
-    type Configuration: Send + Sync + Clone;
-    type Inner: Component<Event = Self::Event>;
-
-    fn inner(&mut self) -> &mut Self::Inner;
-
-    async fn init(&mut self, _cfg: Self::Configuration) -> IndexerResult<()> {
+    async fn init(&mut self, _cfg: IndexerConfiguration) -> IndexerResult<()> {
         Ok(())
     }
 
@@ -43,59 +54,43 @@ pub trait Component: Send + Sync {
         Ok(())
     }
 
-    fn event_tx(&mut self) -> IndexerResult<Sender<Self::Event>> {
-        self.inner().event_tx()
+    async fn handle_event(&mut self, _: &T) -> IndexerResult<()> {
+        Ok(())
     }
 
-    async fn handle_event(&mut self, event: &Self::Event) -> IndexerResult<()> {
-        self.inner().handle_event(event).await
+    async fn push_event(&mut self, _: &T) -> IndexerResult<()> {
+        Ok(())
     }
+
+    async fn interest(&self, _: &T) -> bool;
 }
 
 #[derive(Clone)]
-pub struct ComponentTemplate<T: HookComponent<Event = E> + Clone + 'static, E: Send + Sync + Clone>
-{
+pub struct ComponentTemplate<T: HookComponent<E> + Clone + 'static, E: Clone + Event> {
     internal: T,
     rx: async_channel::Receiver<E>,
     tx: Sender<E>,
-    _marker: std::marker::PhantomData<E>,
 }
 
-impl<T: HookComponent<Event = E> + Clone, E: Send + Sync + Clone> ComponentTemplate<T, E> {
+impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> ComponentTemplate<T, E> {
+    pub fn event_tx(&self) -> Sender<E> {
+        self.tx.clone()
+    }
+}
+impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
     pub fn new(internal: T) -> Self {
         let (tx, rx) = async_channel::unbounded();
-        Self {
-            internal,
-            rx,
-            tx,
-            _marker: Default::default(),
-        }
-    }
-    pub fn grap_rx(&self) -> async_channel::Receiver<E> {
-        self.rx.clone()
+        Self { internal, rx, tx }
     }
 }
 
 #[async_trait::async_trait]
-impl<T: HookComponent<Event = E> + Clone + 'static, E: Send + Sync + Clone + 'static> Component
+impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> Component<E>
     for ComponentTemplate<T, E>
 {
-    type Event = E;
-
-    type Inner = T;
-
-    type Configuration = T::Configuration;
-
-    fn inner(&mut self) -> &mut Self::Inner {
-        &mut self.internal
-    }
-
-    async fn init(&mut self, cfg: Self::Configuration) -> IndexerResult<()> {
+    async fn init(&mut self, cfg: IndexerConfiguration) -> IndexerResult<()> {
+        info!("component {} init", self.component_name());
         self.internal.init(cfg).await
-    }
-
-    fn event_tx(&mut self) -> IndexerResult<Sender<Self::Event>> {
-        Ok(self.tx.clone())
     }
 
     async fn start(&mut self, exit: watch::Receiver<()>) -> IndexerResult<Vec<JoinHandle<()>>> {
@@ -107,11 +102,20 @@ impl<T: HookComponent<Event = E> + Clone + 'static, E: Send + Sync + Clone + 'st
         ret.push(task);
         Ok(ret)
     }
+
+    async fn push_event(&mut self, event: &E) -> IndexerResult<()> {
+        let _ = self.tx.send(event.clone()).await;
+        Ok(())
+    }
+
+    async fn interest(&self, event: &E) -> bool {
+        self.internal.interest(event).await
+    }
 }
 
 #[async_trait::async_trait]
-pub trait HookComponent: Component {
-    async fn before_start(&mut self, _: Sender<Self::Event>) -> IndexerResult<()> {
+pub trait HookComponent<E: Clone + Event>: Component<E> {
+    async fn before_start(&mut self, _: Sender<E>, _: Receiver<E>) -> IndexerResult<()> {
         Ok(())
     }
 
@@ -125,11 +129,13 @@ pub trait HookComponent: Component {
 }
 
 #[async_trait::async_trait]
-impl<T: HookComponent<Event = E> + Clone, E: Send + Sync + Clone + 'static> HookComponent
-    for ComponentTemplate<T, E>
-{
-    async fn before_start(&mut self, sender: Sender<Self::Event>) -> IndexerResult<()> {
-        self.internal.before_start(sender).await
+impl<T: HookComponent<E> + Clone, E: Clone + Event> HookComponent<E> for ComponentTemplate<T, E> {
+    async fn before_start(
+        &mut self,
+        sender: Sender<E>,
+        receiver: Receiver<E>,
+    ) -> IndexerResult<()> {
+        self.internal.before_start(sender, receiver).await
     }
 
     fn interval(&self) -> Option<Duration> {
@@ -140,12 +146,12 @@ impl<T: HookComponent<Event = E> + Clone, E: Send + Sync + Clone + 'static> Hook
         self.internal.handle_tick_event().await
     }
 }
-impl<T: HookComponent<Event = E> + Clone, E: Send + Sync + Clone + 'static>
-    ComponentTemplate<T, E>
-{
+impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
     async fn on_start(&mut self, _: watch::Receiver<()>) -> IndexerResult<()> {
-        let tx = self.event_tx().unwrap();
-        self.internal.before_start(tx).await?;
+        info!("component {} starting", self.component_name());
+        let tx = self.event_tx();
+        let rx = self.rx.clone();
+        self.internal.before_start(tx, rx).await?;
         let rx = self.rx.clone();
         let interval = self.interval();
         if interval.is_none() {
@@ -227,10 +233,6 @@ mod tests {
 
     #[test]
     pub fn test_notifier() {
-        env_logger::builder()
-            .filter_level(log::LevelFilter::Debug)
-            .format_target(false)
-            .init();
         let notifier = sync_create_and_start_processor(IndexerConfiguration {
             mq: ZMQConfiguration {
                 zmq_url: "tcp://0.0.0.0:28332".to_string(),

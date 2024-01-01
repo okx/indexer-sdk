@@ -1,4 +1,5 @@
 use crate::configuration::base::IndexerConfiguration;
+use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;
 use crate::event::{IndexerEvent, TxIdType};
 use crate::factory::common::create_client_from_configuration;
@@ -21,25 +22,17 @@ use zeromq::{Socket, ZmqMessage};
 #[derive(Clone)]
 pub struct ZeroMQComponent {
     config: IndexerConfiguration,
-    sender: async_channel::Sender<IndexerEvent>,
+    sender: async_channel::Sender<DispatchEvent>,
     flag: Arc<AtomicBool>,
     wg: AsyncWaitGroup,
 }
 
 #[async_trait::async_trait]
-impl HookComponent for ZeroMQComponent {}
+impl HookComponent<DispatchEvent> for ZeroMQComponent {}
 
 #[async_trait::async_trait]
-impl Component for ZeroMQComponent {
-    type Event = IndexerEvent;
-    type Configuration = IndexerConfiguration;
-    type Inner = Self;
-
-    fn inner(&mut self) -> &mut Self::Inner {
-        unreachable!()
-    }
-
-    async fn init(&mut self, cfg: Self::Configuration) -> IndexerResult<()> {
+impl Component<DispatchEvent> for ZeroMQComponent {
+    async fn init(&mut self, cfg: IndexerConfiguration) -> IndexerResult<()> {
         self.config = cfg.clone();
         Ok(())
     }
@@ -50,13 +43,20 @@ impl Component for ZeroMQComponent {
         ret.push(node.start(exit.clone(), self.wg.clone()).await);
         Ok(ret)
     }
+
+    async fn interest(&self, event: &DispatchEvent) -> bool {
+        match event {
+            DispatchEvent::ZeroMQEvent(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl ZeroMQComponent {
     pub fn new(
         mq_wg: AsyncWaitGroup,
         config: IndexerConfiguration,
-        sender: async_channel::Sender<IndexerEvent>,
+        sender: async_channel::Sender<DispatchEvent>,
         flag: Arc<AtomicBool>,
     ) -> Self {
         Self {
@@ -71,7 +71,7 @@ impl ZeroMQComponent {
 #[derive(Clone)]
 struct ZeroMQNode {
     config: IndexerConfiguration,
-    sender: async_channel::Sender<IndexerEvent>,
+    sender: async_channel::Sender<DispatchEvent>,
     flag: Arc<AtomicBool>,
     client: Arc<bitcoincore_rpc::Client>,
 }
@@ -79,7 +79,7 @@ struct ZeroMQNode {
 impl ZeroMQNode {
     pub fn new(
         config: IndexerConfiguration,
-        sender: async_channel::Sender<IndexerEvent>,
+        sender: async_channel::Sender<DispatchEvent>,
         flag: Arc<AtomicBool>,
     ) -> Self {
         let client = create_client_from_configuration(config.clone());
@@ -196,7 +196,10 @@ impl ZeroMQNode {
             go!(move || {
                 for tx in txs {
                     sender
-                        .send_blocking(IndexerEvent::NewTxComing(tx.to_bytes(), sequence_number))
+                        .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::NewTxComing(
+                            tx.to_bytes(),
+                            sequence_number,
+                        )))
                         .expect("unreachable")
                 }
             });
@@ -242,7 +245,10 @@ impl ZeroMQNode {
             None
         };
         if let Some(event) = event {
-            self.sender.send(event).await.expect("unreachable");
+            self.sender
+                .send(DispatchEvent::IndexerEvent(event))
+                .await
+                .expect("unreachable");
         }
         Ok(())
     }

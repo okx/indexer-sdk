@@ -1,5 +1,7 @@
 use crate::client::event::ClientEvent;
 use crate::client::Client;
+use crate::component::waitsync::event::WaitSyncEvent;
+use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
@@ -9,7 +11,7 @@ use log::debug;
 #[derive(Clone)]
 pub struct CommonClient {
     pub(crate) rx: async_channel::Receiver<ClientEvent>,
-    pub(crate) tx: async_channel::Sender<IndexerEvent>,
+    pub(crate) tx: async_channel::Sender<DispatchEvent>,
 }
 
 impl Default for CommonClient {
@@ -26,7 +28,7 @@ impl Client for CommonClient {
         self.do_get_data()
     }
 
-    async fn push_event(&self, event: IndexerEvent) -> IndexerResult<()> {
+    async fn push_event(&self, event: DispatchEvent) -> IndexerResult<()> {
         self.tx.send(event).await.unwrap();
         Ok(())
     }
@@ -48,13 +50,15 @@ impl Client for CommonClient {
 
     async fn report_height(&self, height: u32) -> IndexerResult<()> {
         self.tx
-            .send_blocking(IndexerEvent::ReportHeight(height))
+            .send_blocking(DispatchEvent::WaitSyncEvent(WaitSyncEvent::ReportHeight(
+                height,
+            )))
             .unwrap();
         Ok(())
     }
     async fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()> {
         self.tx
-            .send_blocking(IndexerEvent::ReportReorg(txs))
+            .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::ReportReorg(txs)))
             .unwrap();
         Ok(())
     }
@@ -63,7 +67,7 @@ impl Client for CommonClient {
 impl CommonClient {
     pub fn new(
         rx: async_channel::Receiver<ClientEvent>,
-        tx: async_channel::Sender<IndexerEvent>,
+        tx: async_channel::Sender<DispatchEvent>,
     ) -> Self {
         Self { rx, tx }
     }
@@ -75,14 +79,18 @@ impl CommonClient {
     ) -> IndexerResult<BalanceType> {
         let (tx, rx) = crossbeam::channel::bounded(1);
         self.tx
-            .send_blocking(IndexerEvent::GetBalance(address, tx))
+            .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::GetBalance(
+                address, tx,
+            )))
             .unwrap();
         let ret = rx.recv().unwrap();
         Ok(ret)
     }
     pub(crate) fn do_update_delta(&self, delta: TransactionDelta) -> IndexerResult<()> {
         self.tx
-            .send_blocking(IndexerEvent::UpdateDelta(delta))
+            .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::UpdateDelta(
+                delta,
+            )))
             .unwrap();
         Ok(())
     }
@@ -102,7 +110,9 @@ impl CommonClient {
     }
 
     pub fn sync_push_event(&self, event: IndexerEvent) {
-        self.tx.send_blocking(event).unwrap();
+        self.tx
+            .send_blocking(DispatchEvent::IndexerEvent(event))
+            .unwrap();
     }
 
     pub fn get(&self) -> Vec<u8> {
