@@ -3,7 +3,7 @@ pub mod event;
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
 use crate::{Event, HookComponent};
-use std::any::Any;
+use log::{info, warn};
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
@@ -55,23 +55,30 @@ impl<E: Event + Clone> Dispatcher<E> {
     }
 
     pub async fn do_start(&mut self, mut exit: watch::Receiver<()>) {
+        info!("dispatcher starting");
         loop {
             tokio::select! {
                 _ = exit.changed() => {
                     break;
                 }
                 event = self.rx.recv() => {
-                    if let Ok(event) = event {
-                        for component in self.components.iter_mut() {
-                            if component.interest(&event).await{
-                                component.push_event(&event).await.unwrap();
+                    info!("recv event:{:?}", &event);
+                    match event{
+                        Ok(event) => {
+                            for component in self.components.iter_mut() {
+                                if component.interest(&event).await{
+                                    component.push_event(&event).await.unwrap();
+                                }
                             }
-                        }
-                        // for component in self.components.iter_mut() {
+                              // for component in self.components.iter_mut() {
                         //     if component.interest(&event) {
                         //         component.handle_event(&event).await?;
                         //     }
                         // }
+                        }
+                        Err(e) => {
+                            warn!("recv error:{:?}", e)
+                        }
                     }
                 }
             }

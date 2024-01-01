@@ -82,7 +82,6 @@ impl<T: StorageProcessor + Clone + 'static> Executor<T> {
         tokio::spawn(async move { internal.do_start().await })
     }
     async fn do_start(&mut self) {
-        info!("executor starting");
         loop {
             let data = self.rx.recv().await;
             if let Err(e) = data {

@@ -66,8 +66,11 @@ pub async fn async_create_and_start_processor(
         flag.clone(),
     ));
 
-    let wait_cachup =
-        WaitIndexerCatchupComponent::new(catch_up_wg, client.clone(), notify_tx.clone());
+    let wait_cachup = ComponentTemplate::new(WaitIndexerCatchupComponent::new(
+        catch_up_wg,
+        client.clone(),
+        notify_tx.clone(),
+    ));
 
     let zmq = ComponentTemplate::new(ZeroMQComponent::new(
         mq_wg,
@@ -76,8 +79,8 @@ pub async fn async_create_and_start_processor(
         flag.clone(),
     ));
 
-    dispatcher.register_component(Box::new(indexer.clone()));
-    dispatcher.register_component(Box::new(wait_cachup.clone()));
+    dispatcher.register_component(Box::new(indexer));
+    dispatcher.register_component(Box::new(wait_cachup));
     dispatcher.register_component(Box::new(zmq.clone()));
 
     dispatcher.init(origin_cfg.clone()).await.unwrap();

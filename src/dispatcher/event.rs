@@ -3,7 +3,7 @@ use crate::component::zmq::event::ZeroMQEvent;
 use crate::event::IndexerEvent;
 use crate::Event;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum DispatchEvent {
     IndexerEvent(IndexerEvent),
     ZeroMQEvent(ZeroMQEvent),

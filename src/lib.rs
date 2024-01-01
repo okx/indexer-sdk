@@ -3,6 +3,7 @@ use crate::error::IndexerResult;
 use async_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
 use log::{info, warn};
+use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch;
@@ -26,7 +27,7 @@ pub struct IndexerContext {}
 #[async_trait::async_trait]
 pub trait IndexProcessor<T: Event + Clone>: Component<T> {}
 
-pub trait Event: Downcast + Send + Sync {
+pub trait Event: Downcast + Send + Sync + Debug {
     fn is_async(&self) -> bool {
         true
     }
@@ -37,6 +38,10 @@ impl Event for Arc<Box<dyn Event>> {}
 
 #[async_trait::async_trait]
 pub trait Component<T: Event + Clone>: Send + Sync {
+    fn component_name(&self) -> String {
+        std::any::type_name::<Self>().to_string()
+    }
+
     async fn init(&mut self, _cfg: IndexerConfiguration) -> IndexerResult<()> {
         Ok(())
     }
@@ -84,6 +89,7 @@ impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> Component<E>
     for ComponentTemplate<T, E>
 {
     async fn init(&mut self, cfg: IndexerConfiguration) -> IndexerResult<()> {
+        info!("component {} init", self.component_name());
         self.internal.init(cfg).await
     }
 
@@ -142,6 +148,7 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> HookComponent<E> for Compone
 }
 impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
     async fn on_start(&mut self, _: watch::Receiver<()>) -> IndexerResult<()> {
+        info!("component {} starting", self.component_name());
         let tx = self.event_tx();
         let rx = self.rx.clone();
         self.internal.before_start(tx, rx).await?;
@@ -226,10 +233,6 @@ mod tests {
 
     #[test]
     pub fn test_notifier() {
-        env_logger::builder()
-            .filter_level(log::LevelFilter::Debug)
-            .format_target(false)
-            .init();
         let notifier = sync_create_and_start_processor(IndexerConfiguration {
             mq: ZMQConfiguration {
                 zmq_url: "tcp://0.0.0.0:28332".to_string(),

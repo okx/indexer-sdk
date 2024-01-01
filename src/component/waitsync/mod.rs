@@ -64,6 +64,7 @@ impl HookComponent<DispatchEvent> for WaitIndexerCatchupComponent {
         _: Sender<DispatchEvent>,
         rx: Receiver<DispatchEvent>,
     ) -> IndexerResult<()> {
+        info!("wait indexer catch up");
         let grap_rx = rx.clone();
         let grap_tx = self.grap_tx.clone();
         loop {
