@@ -103,6 +103,10 @@ impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> Component<E>
         Ok(ret)
     }
 
+    async fn handle_event(&mut self, e: &E) -> IndexerResult<()> {
+        self.internal.handle_event(e).await
+    }
+
     async fn push_event(&mut self, event: &E) -> IndexerResult<()> {
         let _ = self.tx.send(event.clone()).await;
         Ok(())

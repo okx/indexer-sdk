@@ -122,7 +122,7 @@ impl<T: StorageProcessor + Clone + 'static> Executor<T> {
                 }))
             }
             ClientEvent::GetHeight => {
-                self.height = self.height + 50;
+                self.height = self.height + 500;
                 self.client.report_height(self.height).await.unwrap();
                 Ok(None)
             }
