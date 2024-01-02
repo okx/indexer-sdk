@@ -1,3 +1,4 @@
+use crate::component::org::event::OrgEvent;
 use crate::component::waitsync::event::WaitSyncEvent;
 use crate::component::zmq::event::ZeroMQEvent;
 use crate::event::IndexerEvent;
@@ -8,6 +9,7 @@ pub enum DispatchEvent {
     IndexerEvent(IndexerEvent),
     ZeroMQEvent(ZeroMQEvent),
     WaitSyncEvent(WaitSyncEvent),
+    OrgEvent(OrgEvent),
 }
 
 unsafe impl Send for DispatchEvent {}
@@ -32,6 +34,12 @@ impl DispatchEvent {
     pub fn get_waitsync_event(&self) -> Option<&WaitSyncEvent> {
         match self {
             DispatchEvent::WaitSyncEvent(event) => Some(event),
+            _ => None,
+        }
+    }
+    pub fn get_org_event(&self) -> Option<&OrgEvent> {
+        match self {
+            DispatchEvent::OrgEvent(event) => Some(event),
             _ => None,
         }
     }

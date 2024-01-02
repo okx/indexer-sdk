@@ -67,8 +67,9 @@ impl IndexerEvent {
                 let data = serde_json::to_vec(&txs).unwrap();
                 data
             }
+
             _ => {
-                panic!("not support");
+                panic!("not support")
             }
         };
         data.push(self.get_suffix());

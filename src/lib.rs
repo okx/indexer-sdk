@@ -58,10 +58,6 @@ pub trait Component<T: Event + Clone>: Send + Sync {
         Ok(())
     }
 
-    async fn push_event(&mut self, _: &T) -> IndexerResult<()> {
-        Ok(())
-    }
-
     async fn interest(&self, _: &T) -> bool;
 }
 
@@ -80,6 +76,9 @@ impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> ComponentTemplate<
 impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
     pub fn new(internal: T) -> Self {
         let (tx, rx) = async_channel::unbounded();
+        Self { internal, rx, tx }
+    }
+    pub fn new_with_tx_rx(internal: T, tx: Sender<E>, rx: Receiver<E>) -> Self {
         Self { internal, rx, tx }
     }
 }
@@ -107,11 +106,6 @@ impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> Component<E>
         self.internal.handle_event(e).await
     }
 
-    async fn push_event(&mut self, event: &E) -> IndexerResult<()> {
-        let _ = self.tx.send(event.clone()).await;
-        Ok(())
-    }
-
     async fn interest(&self, event: &E) -> bool {
         self.internal.interest(event).await
     }
@@ -128,6 +122,10 @@ pub trait HookComponent<E: Clone + Event>: Component<E> {
     }
 
     async fn handle_tick_event(&mut self) -> IndexerResult<()> {
+        Ok(())
+    }
+
+    async fn push_event(&mut self, _: &E) -> IndexerResult<()> {
         Ok(())
     }
 }
@@ -148,6 +146,11 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> HookComponent<E> for Compone
 
     async fn handle_tick_event(&mut self) -> IndexerResult<()> {
         self.internal.handle_tick_event().await
+    }
+
+    async fn push_event(&mut self, event: &E) -> IndexerResult<()> {
+        let _ = self.tx.send(event.clone()).await;
+        Ok(())
     }
 }
 impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {

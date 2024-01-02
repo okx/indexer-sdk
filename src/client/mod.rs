@@ -28,7 +28,7 @@ pub trait Client: Send + Sync {
 }
 
 #[async_trait::async_trait]
-pub trait SyncClient {
+pub trait SyncClient: Send + Sync {
     fn get_event(&self) -> IndexerResult<Option<ClientEvent>>;
     fn report_height(&self, height: u32) -> IndexerResult<()>;
     fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()>;
