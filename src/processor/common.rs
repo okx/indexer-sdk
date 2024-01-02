@@ -253,6 +253,9 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                     .await?;
             }
 
+            self.storage
+                .save_height_tx(latest_indexer_height, tx_id.clone())
+                .await?;
             self.tx.send(ClientEvent::Transaction(tx)).await.unwrap();
         }
         Ok(())

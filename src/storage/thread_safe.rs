@@ -112,4 +112,18 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
         drop(read);
         ret
     }
+
+    async fn save_height_tx(&mut self, height: u32, tx_id: TxIdType) -> IndexerResult<()> {
+        let mut write = self.rw_lock.write().await;
+        self.internal.save_height_tx(height, tx_id).await?;
+        *write += 1;
+        Ok(())
+    }
+
+    async fn remove_height_traces(&mut self, height: u32) -> IndexerResult<()> {
+        let mut write = self.rw_lock.write().await;
+        self.internal.remove_height_traces(height).await?;
+        *write += 1;
+        Ok(())
+    }
 }

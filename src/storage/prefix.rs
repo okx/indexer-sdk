@@ -7,6 +7,10 @@ pub enum KeyPrefix {
     AddressTokenBalance, // address|token -> balance
     SeenTx,              // tx_id -> timestamp
     PureSet,             // tx_id|key -> value
+
+    HeightTxSet, // height -> tx_id set
+
+    TxKeyTrace, // tx_id+key -> {}
 }
 pub enum DeltaStatus {
     Default,
@@ -42,6 +46,8 @@ impl KeyPrefix {
             KeyPrefix::TransactionIndexMap => b"d",
             KeyPrefix::SeenTx => b"e",
             KeyPrefix::PureSet => b"f",
+            KeyPrefix::HeightTxSet => b"g",
+            KeyPrefix::TxKeyTrace => b"h",
         }
     }
     pub fn get_suffix<'a>(&self, key: &'a [u8]) -> &'a [u8] {
@@ -88,6 +94,27 @@ impl KeyPrefix {
         let mut ret = Self::SeenTx.get_prefix().to_vec();
         ret.extend_from_slice(tx_id.to_bytes().as_slice());
         ret
+    }
+    pub fn build_height_txs_key(height: u32) -> Vec<u8> {
+        let mut ret = Self::HeightTxSet.get_prefix().to_vec();
+        ret.extend_from_slice(&height.to_le_bytes());
+        ret
+    }
+    pub fn build_tx_key_trace(tx_id: &TxIdType, key: &[u8]) -> Vec<u8> {
+        let mut ret = Self::TxKeyTrace.get_prefix().to_vec();
+        ret.extend_from_slice(tx_id.to_bytes().as_slice());
+        ret.extend_from_slice(key);
+        ret
+    }
+    pub fn interator_tx_key_prefix(tx_id: &TxIdType) -> Vec<u8> {
+        let mut ret = Self::TxKeyTrace.get_prefix().to_vec();
+        ret.extend_from_slice(tx_id.to_bytes().as_slice());
+        ret
+    }
+    pub fn split_tx_key_trace(key: &[u8]) -> (TxIdType, Vec<u8>) {
+        let tx_id = TxIdType::from_bytes(&key[1..33]);
+        let key = key[33..].to_vec();
+        (tx_id, key)
     }
     pub fn get_tx_id_from_seen_key(key: &[u8]) -> TxIdType {
         let suffix = Self::SeenTx.get_suffix(key);

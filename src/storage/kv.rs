@@ -12,7 +12,7 @@ use chrono::Local;
 use log::{error, info};
 use rusty_leveldb::WriteBatch;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 const MAX_DELAY: i64 = 60 * 60 * 24 * 5; // five days
 
@@ -55,7 +55,8 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         if transaction.deltas.is_empty() {
             let mut batch = WriteBatch::new();
             self.wrap_seen_txs(&mut batch, &transaction.tx_id, SeenStatus::Executed)?;
-            self.db.write_batch(batch, true)?;
+            self.db
+                .write_batch(Some(transaction.tx_id.clone()), batch, true)?;
             return Ok(());
         }
         let mut batch = WriteBatch::new();
@@ -70,7 +71,8 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         self.wrap_address_utxo(&mut batch, transaction, true)?;
         self.wrap_seen_txs(&mut batch, &transaction.tx_id, SeenStatus::Executed)?;
 
-        self.db.write_batch(batch, true)?;
+        self.db
+            .write_batch(Some(transaction.tx_id.clone()), batch, true)?;
         Ok(())
     }
 
@@ -95,7 +97,7 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         self.wrap_address_utxo(&mut batch, &delta.data, false)?;
         self.rm_seen_tx(&mut batch, tx_id);
 
-        self.db.write_batch(batch, true)?;
+        self.db.write_batch(Some(tx_id.clone()), batch, true)?;
         Ok(())
     }
 
@@ -111,7 +113,8 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         let mut data = ts.to_le_bytes().to_vec();
         data.extend_from_slice(SeenStatus::UnExecuted.to_u8().to_le_bytes().as_slice());
         info!("tx_id:{:?} is not seen,store it", tx_id);
-        self.db.set(key.as_slice(), data.as_slice())?;
+        self.db
+            .set(Some(tx_id.clone()), key.as_slice(), data.as_slice())?;
         return Ok(SeenStatusResponse {
             seen: false,
             status: SeenStatus::UnExecuted,
@@ -137,7 +140,7 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
 
     async fn get_all_un_consumed_txs(&mut self) -> IndexerResult<HashMap<TxIdType, i64>> {
         let now = Local::now().timestamp();
-        let iter = self.db.iter_all(
+        let iter = self.db.iter_all_mut(
             KeyPrefix::SeenTx.get_prefix(),
             |k| k,
             |v| {
@@ -170,7 +173,7 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
     ) -> IndexerResult<Vec<AllBalanceResponse>> {
         let prefix = KeyPrefix::build_address_balance_prefix_key(address);
         let l = prefix.len();
-        let ret = self.db.iter_all(
+        let ret = self.db.iter_all_mut(
             prefix.as_slice(),
             |k| {
                 let token_type = TokenType::from_bytes(&k[l..]);
@@ -198,7 +201,8 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         value: Vec<u8>,
     ) -> IndexerResult<()> {
         let key = KeyPrefix::build_pure_set_key(tx_id, key);
-        self.db.set(key.as_slice(), value.as_slice())?;
+        self.db
+            .set(Some(tx_id.clone()), key.as_slice(), value.as_slice())?;
         Ok(())
     }
 
@@ -206,6 +210,22 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         let key = KeyPrefix::build_pure_set_key(tx_id, key);
         let ret = self.db.get(key.as_slice())?;
         Ok(ret)
+    }
+
+    async fn save_height_tx(&mut self, height: u32, tx_id: TxIdType) -> IndexerResult<()> {
+        let (key, mut data) = self.get_height_txs(height)?;
+        data.insert(tx_id.clone());
+        let data = serde_json::to_vec(&data).unwrap();
+        self.db.set(Some(tx_id), key.as_slice(), data.as_slice())?;
+        Ok(())
+    }
+
+    async fn remove_height_traces(&mut self, height: u32) -> IndexerResult<()> {
+        let (_, txs) = self.get_height_txs(height)?;
+        let txs = txs.into_iter().map(|v| v).collect();
+        self.db.remove_tx_traces(txs)?;
+
+        Ok(())
     }
 }
 
@@ -219,6 +239,19 @@ impl<T: DB + Send + Sync + Clone> KVStorageProcessor<T> {
         Self { db }
     }
 
+    fn get_height_txs(&mut self, height: u32) -> IndexerResult<(Vec<u8>, HashSet<TxIdType>)> {
+        let key = KeyPrefix::build_height_txs_key(height);
+        let ret = self.db.get(key.as_slice())?;
+        let data = if ret.is_none() {
+            let mut data = HashSet::new();
+            data
+        } else {
+            let data = ret.unwrap();
+            let data: HashSet<TxIdType> = serde_json::from_slice(data.as_slice()).unwrap();
+            data
+        };
+        Ok((key, data))
+    }
     fn get_transaction_delta_by_tx_id(
         &mut self,
         tx_id: &TxIdType,
@@ -330,7 +363,7 @@ impl<T: DB + Send + Sync + Clone> KVStorageProcessor<T> {
     // }
     pub fn update_state(&mut self, id: u32) -> IndexerResult<()> {
         let key = KeyPrefix::State.get_prefix();
-        self.db.set(key, id.to_le_bytes().as_slice())?;
+        self.db.set(None, key, id.to_le_bytes().as_slice())?;
         Ok(())
     }
     pub fn acquire_next_state(&mut self) -> IndexerResult<u32> {
