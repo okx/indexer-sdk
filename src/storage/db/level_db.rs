@@ -65,8 +65,10 @@ impl DB for LevelDB {
         // better way?
         let mut entry = vec![];
         if let Some(tx_id) = tx_id {
-            batch.iter().for_each(|(k, _)| {
-                entry.push((KeyPrefix::build_tx_key_trace(&tx_id, k), &[]));
+            batch.iter().for_each(|(k, v)| {
+                if v.is_some() {
+                    entry.push((KeyPrefix::build_tx_key_trace(&tx_id, k), &[]));
+                }
                 // new_batch.put(k, v) foreach once?
             });
         }

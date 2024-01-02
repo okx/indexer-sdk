@@ -40,10 +40,10 @@ impl DB for MemoryDB {
         let mut data = self.datas.borrow_mut();
         let mut entry = vec![];
         batch.iter().for_each(|(k, v)| {
-            entry.push(k.to_vec());
             if v.is_none() {
                 data.remove(k);
             } else {
+                entry.push(k.to_vec());
                 let v = v.unwrap().to_vec();
                 data.insert(k.to_vec(), v);
             }
