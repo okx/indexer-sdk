@@ -3,6 +3,7 @@ use crate::configuration::base::IndexerConfiguration;
 use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
+use crate::processor::node::TxNode;
 use crate::storage::prefix::DeltaStatus;
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
@@ -13,6 +14,7 @@ use bitcoincore_rpc::bitcoin::{Transaction, Txid};
 use bitcoincore_rpc::RpcApi;
 use chrono::Local;
 use log::{error, info, warn};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -36,6 +38,8 @@ pub struct IndexerProcessorImpl<T: StorageProcessor> {
     last_indexer_height: Option<u32>,
     current_indexer_height: Option<u32>,
     current_chain_latest_height: Option<(u32, i64)>,
+
+    analyses: HashMap<TxIdType, TxNode>,
 }
 
 unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
@@ -68,6 +72,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             current_indexer_height: None,
             current_chain_latest_height: None,
             grap_rx,
+            analyses: Default::default(),
         }
     }
 }
@@ -244,6 +249,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 }
             } else {
                 info!("tx_id:{:?} has not been executed,start to dispatch", tx_id);
+                self.analyse_transaction(&tx);
             }
             let latest_chain_height = self.get_latest_chain_height()?;
             let latest_indexer_height = self.get_current_indexer_height();
@@ -262,6 +268,48 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             self.tx.send(ClientEvent::Transaction(tx)).await.unwrap();
         }
         Ok(())
+    }
+
+    fn analyse_transaction(&mut self, tx: &Transaction) {
+        let tx_id: TxIdType = tx.txid().into();
+        let node = self.analyses.get(&tx_id);
+        if node.is_some() {
+            return;
+        }
+        let current_node = TxNode::new(tx_id);
+        // build by input
+        for input in &tx.input {
+            let prev_tx_id: TxIdType = input.previous_output.txid.into();
+            let mut prev_node = self.analyses.get_mut(&prev_tx_id);
+            if prev_node.is_none() {
+                let tx_node = TxNode::new(prev_tx_id.clone());
+                tx_node.nexts.add(current_node.clone());
+                self.analyses.insert(prev_tx_id, tx_node);
+            } else {
+                let prev_node = prev_node.unwrap();
+                prev_node.nexts.add(current_node.clone());
+            }
+        }
+    }
+    fn get_current_child_by_tx_id(&self, tx_id: &TxIdType) -> Vec<TxIdType> {
+        let mut ret = vec![];
+        ret.push(tx_id.clone());
+
+        loop {
+            let node = self.analyses.get(tx_id);
+            if node.is_none() {
+                break;
+            }
+            let node = node.unwrap();
+            if node.nexts.is_empty() {
+                break;
+            }
+            let nexts = node.nexts.clone();
+            for next in nexts {
+                ret.extend(self.loop_re_dispatch_by_tx_id(&next.current_hash));
+            }
+        }
+        ret
     }
     fn get_latest_chain_height(&mut self) -> IndexerResult<u32> {
         let dt = Local::now();
@@ -333,9 +381,22 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         self.restart().await
     }
     async fn restart(&mut self) -> IndexerResult<()> {
+        let h = self.current_indexer_height.unwrap();
         self.wait_catchup(self.grap_rx.clone()).await?;
+        self.clean(h).await?;
         // maybe we need to flush the grap_tx?
+        loop {
+            let res = self.grap_tx.try_recv();
+            if res.is_err() {
+                break;
+            }
+        }
         self.restore_from_mempool(self.grap_tx.clone()).await?;
+        Ok(())
+    }
+    async fn clean(&mut self, h: u32) -> IndexerResult<()> {
+        self.analyses.clear();
+        self.storage.remove_height_traces(h).await?;
         Ok(())
     }
     async fn do_handle_block_catch_up(&mut self, h: &u32) -> IndexerResult<()> {
