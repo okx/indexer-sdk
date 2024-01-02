@@ -395,6 +395,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         Ok(())
     }
     async fn clean(&mut self, h: u32) -> IndexerResult<()> {
+        self.flag.store(false, Ordering::Relaxed);
         self.analyses.clear();
         self.storage.remove_height_traces(h).await?;
         Ok(())

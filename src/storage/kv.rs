@@ -218,9 +218,10 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
     }
 
     async fn remove_height_traces(&mut self, height: u32) -> IndexerResult<()> {
-        let (_, txs) = self.get_height_txs(height)?;
+        let (key, txs) = self.get_height_txs(height)?;
         let txs = txs.into_iter().map(|v| v).collect();
         self.db.remove_tx_traces(txs)?;
+        self.db.delete(&key)?;
 
         Ok(())
     }

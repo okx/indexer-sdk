@@ -9,6 +9,9 @@ use rusty_leveldb::WriteBatch;
 pub trait DB {
     fn set(&mut self, tx_id: Option<TxIdType>, key: &[u8], value: &[u8]) -> IndexerResult<()>;
     fn get(&mut self, key: &[u8]) -> IndexerResult<Option<Vec<u8>>>;
+
+    fn delete(&mut self, key: &[u8]) -> IndexerResult<()>;
+
     fn write_batch(
         &mut self,
         tx_id: Option<TxIdType>,

@@ -55,6 +55,13 @@ impl DB for LevelDB {
         Ok(db.get(key))
     }
 
+    fn delete(&mut self, key: &[u8]) -> IndexerResult<()> {
+        let mut db = self.db.borrow_mut();
+        db.delete(key)?;
+        db.flush()?;
+        Ok(())
+    }
+
     fn write_batch(
         &mut self,
         tx_id: Option<TxIdType>,

@@ -31,6 +31,12 @@ impl DB for MemoryDB {
         Ok(data.get(key).cloned())
     }
 
+    fn delete(&mut self, key: &[u8]) -> IndexerResult<()> {
+        let mut data = self.datas.borrow_mut();
+        data.remove(key);
+        Ok(())
+    }
+
     fn write_batch(
         &mut self,
         tx_id: Option<TxIdType>,
