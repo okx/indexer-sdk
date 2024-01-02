@@ -200,15 +200,12 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         key: &[u8],
         value: Vec<u8>,
     ) -> IndexerResult<()> {
-        let key = KeyPrefix::build_pure_set_key(tx_id, key);
-        self.db
-            .set(Some(tx_id.clone()), key.as_slice(), value.as_slice())?;
+        self.db.set(Some(tx_id.clone()), key, value.as_slice())?;
         Ok(())
     }
 
-    async fn simple_get(&mut self, tx_id: &TxIdType, key: &[u8]) -> IndexerResult<Option<Vec<u8>>> {
-        let key = KeyPrefix::build_pure_set_key(tx_id, key);
-        let ret = self.db.get(key.as_slice())?;
+    async fn simple_get(&mut self, key: &[u8]) -> IndexerResult<Option<Vec<u8>>> {
+        let ret = self.db.get(key)?;
         Ok(ret)
     }
 

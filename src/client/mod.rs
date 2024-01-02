@@ -48,5 +48,7 @@ pub trait SyncClient: Send + Sync {
 
     fn rx(&self) -> async_channel::Receiver<ClientEvent>;
 
-    fn set(&mut self, tx_id: &TxIdType, key: &[u8], value: Vec<u8>) -> IndexerResult<()>;
+    fn simple_set(&mut self, tx_id: &TxIdType, key: &[u8], value: Vec<u8>) -> IndexerResult<()>;
+
+    fn simple_get(&mut self, key: &[u8]) -> IndexerResult<Option<Vec<u8>>>;
 }

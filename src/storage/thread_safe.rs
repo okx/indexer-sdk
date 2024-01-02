@@ -106,9 +106,9 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
         Ok(())
     }
 
-    async fn simple_get(&mut self, tx_id: &TxIdType, key: &[u8]) -> IndexerResult<Option<Vec<u8>>> {
+    async fn simple_get(&mut self, key: &[u8]) -> IndexerResult<Option<Vec<u8>>> {
         let read = self.rw_lock.write().await;
-        let ret = self.internal.simple_get(tx_id, key).await;
+        let ret = self.internal.simple_get(key).await;
         drop(read);
         ret
     }

@@ -6,8 +6,7 @@ pub enum KeyPrefix {
     TransactionIndexMap, // tx_id -> index
     AddressTokenBalance, // address|token -> balance
     SeenTx,              // tx_id -> timestamp
-    PureSet,             // tx_id|key -> value
-
+    // PureSet,             // tx_id|key -> value
     HeightTxSet, // height -> tx_id set
 
     TxKeyTrace, // tx_id+key -> {}
@@ -45,7 +44,7 @@ impl KeyPrefix {
             KeyPrefix::AddressTokenBalance => b"c",
             KeyPrefix::TransactionIndexMap => b"d",
             KeyPrefix::SeenTx => b"e",
-            KeyPrefix::PureSet => b"f",
+            // KeyPrefix::PureSet => b"f",
             KeyPrefix::HeightTxSet => b"g",
             KeyPrefix::TxKeyTrace => b"h",
         }
@@ -84,12 +83,12 @@ impl KeyPrefix {
         ret.extend_from_slice(address.to_bytes().as_slice());
         ret
     }
-    pub fn build_pure_set_key(tx_id: &TxIdType, key: &[u8]) -> Vec<u8> {
-        let mut ret = Self::PureSet.get_prefix().to_vec();
-        ret.extend_from_slice(tx_id.to_bytes().as_slice());
-        ret.extend_from_slice(&key);
-        ret
-    }
+    // pub fn build_pure_set_key(tx_id: &TxIdType, key: &[u8]) -> Vec<u8> {
+    //     let mut ret = Self::PureSet.get_prefix().to_vec();
+    //     ret.extend_from_slice(tx_id.to_bytes().as_slice());
+    //     ret.extend_from_slice(&key);
+    //     ret
+    // }
     pub fn build_seen_tx_key(tx_id: &TxIdType) -> Vec<u8> {
         let mut ret = Self::SeenTx.get_prefix().to_vec();
         ret.extend_from_slice(tx_id.to_bytes().as_slice());

@@ -47,7 +47,7 @@ pub trait StorageProcessor: Send + Sync {
         value: Vec<u8>,
     ) -> IndexerResult<()>;
 
-    async fn simple_get(&mut self, tx_id: &TxIdType, key: &[u8]) -> IndexerResult<Option<Vec<u8>>>;
+    async fn simple_get(&mut self, key: &[u8]) -> IndexerResult<Option<Vec<u8>>>;
 
     async fn save_height_tx(&mut self, height: u32, tx_id: TxIdType) -> IndexerResult<()>;
 
@@ -122,8 +122,8 @@ impl StorageProcessor for Box<dyn StorageProcessor> {
         self.as_mut().simple_set(tx_id, key, value).await
     }
 
-    async fn simple_get(&mut self, tx_id: &TxIdType, key: &[u8]) -> IndexerResult<Option<Vec<u8>>> {
-        self.as_mut().simple_get(tx_id, key).await
+    async fn simple_get(&mut self, key: &[u8]) -> IndexerResult<Option<Vec<u8>>> {
+        self.as_mut().simple_get(key).await
     }
 
     async fn save_height_tx(&mut self, height: u32, tx_id: TxIdType) -> IndexerResult<()> {
