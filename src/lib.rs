@@ -247,6 +247,7 @@ mod tests {
             },
             net: Default::default(),
             db_path: "./db".to_string(),
+            save_block_cache_count: 10,
         });
         loop {
             let data = notifier.get();

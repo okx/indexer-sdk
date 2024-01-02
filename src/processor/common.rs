@@ -1,4 +1,5 @@
 use crate::client::event::ClientEvent;
+use crate::configuration::base::IndexerConfiguration;
 use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
@@ -19,6 +20,7 @@ use wg::AsyncWaitGroup;
 
 #[derive(Clone)]
 pub struct IndexerProcessorImpl<T: StorageProcessor> {
+    config: IndexerConfiguration,
     tx: async_channel::Sender<ClientEvent>,
     storage: T,
     btc_client: Arc<bitcoincore_rpc::Client>,
@@ -43,6 +45,7 @@ unsafe impl<T: StorageProcessor> Sync for IndexerProcessorImpl<T> {}
 const MAX_UPDATE_CHAIN_HEIGHT_INTERVAL: i64 = 60 * 3;
 impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     pub fn new(
+        config: IndexerConfiguration,
         wg: AsyncWaitGroup,
         tx: Sender<ClientEvent>,
         storage: T,
@@ -53,6 +56,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         grap_rx: Receiver<DispatchEvent>,
     ) -> Self {
         Self {
+            config,
             tx,
             storage,
             btc_client: client,
@@ -207,8 +211,8 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             IndexerEvent::ReportHeight(h) => {
                 self.do_handle_block_catch_up(h).await?;
             }
-            IndexerEvent::ReportReorg(ts) => {
-                self.do_handle_report_reorg(ts).await?;
+            IndexerEvent::ReportReorg(v) => {
+                self.do_handle_report_reorg(*v).await?;
             }
         }
         Ok(())
@@ -249,8 +253,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                     "indexer is not catch up,chain_height:{},indexer_height:{}",
                     latest_chain_height, latest_indexer_height
                 );
-                self.before_start(self.grap_tx.clone(), self.grap_rx.clone())
-                    .await?;
+                return self.restart().await;
             }
 
             self.storage
@@ -319,19 +322,40 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             .unwrap();
         Ok(())
     }
-    async fn do_handle_report_reorg(&mut self, txs: &Vec<TxIdType>) -> IndexerResult<()> {
-        for tx_id in txs {
-            if let Err(e) = self.do_handle_tx_removed(tx_id).await {
-                error!("do_handle_report_reorg error:{:?},txid:{:?}", e, tx_id);
-            }
+    async fn do_handle_report_reorg(&mut self, org: u32) -> IndexerResult<()> {
+        let current_height = self.current_indexer_height.unwrap();
+        for i in org..current_height + 1 {
+            self.storage.remove_height_traces(i).await.map_err(|e| {
+                error!("remove_height_traces error:{:?}", e);
+                e
+            })?;
         }
+        self.restart().await
+    }
+    async fn restart(&mut self) -> IndexerResult<()> {
+        self.wait_catchup(self.grap_rx.clone()).await?;
+        // maybe we need to flush the grap_tx?
+        self.restore_from_mempool(self.grap_tx.clone()).await?;
         Ok(())
     }
     async fn do_handle_block_catch_up(&mut self, h: &u32) -> IndexerResult<()> {
+        self.current_indexer_height = Some(*h);
         if self.last_indexer_height.is_none() {
             self.last_indexer_height = Some(*h);
         }
-        self.current_indexer_height = Some(*h);
+        self.storage.remove_height_traces(*h).await.map_err(|e| {
+            error!("remove_height_traces error:{:?}", e);
+            e
+        })?;
+        // if h % self.config.save_block_cache_count == 0 {
+        //     // try to flush
+        //     for i in h - self.config.save_block_cache_count..h + 1 {
+        //         self.storage.remove_height_traces(*i).await.map_err(|e| {
+        //             error!("remove_height_traces error:{:?}", e);
+        //             e
+        //         })?;
+        //     }
+        // }
         Ok(())
     }
 }

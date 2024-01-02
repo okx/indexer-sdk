@@ -24,7 +24,7 @@ pub enum IndexerEvent {
 
     ReportHeight(u32),
 
-    ReportReorg(Vec<TxIdType>),
+    ReportReorg(u32),
 }
 impl Event for IndexerEvent {}
 impl IndexerEvent {
@@ -63,8 +63,8 @@ impl IndexerEvent {
                 let data = height.to_le_bytes().to_vec();
                 data
             }
-            IndexerEvent::ReportReorg(txs) => {
-                let data = serde_json::to_vec(&txs).unwrap();
+            IndexerEvent::ReportReorg(height) => {
+                let data = height.to_le_bytes().to_vec();
                 data
             }
 
@@ -92,12 +92,12 @@ impl IndexerEvent {
                 IndexerEvent::TxRemoved(tx_id)
             }
             6 => {
-                let height = u32::from_be_bytes(data[0..data.len() - 1].try_into().unwrap());
+                let height = u32::from_le_bytes(data[0..data.len() - 1].try_into().unwrap());
                 IndexerEvent::ReportHeight(height)
             }
             7 => {
-                let tx_ids = serde_json::from_slice(&data[0..data.len() - 1]).unwrap();
-                IndexerEvent::ReportReorg(tx_ids)
+                let height = u32::from_le_bytes(data[0..data.len() - 1].try_into().unwrap());
+                IndexerEvent::ReportReorg(height)
             }
             _ => {
                 panic!("unknown suffix:{}", suffix);
@@ -131,7 +131,7 @@ impl Debug for IndexerEvent {
                 write!(f, "ReportHeight: {}", v)
             }
             IndexerEvent::ReportReorg(v) => {
-                write!(f, "ReportReorg: {:?}", v)
+                write!(f, "ReportReorg,to:{:?}", v)
             }
         }
     }

@@ -42,6 +42,10 @@ pub extern "C" fn start_processor() {
     let db_path = std::env::var("DB_PATH")
         .map(|v| v.to_string())
         .unwrap_or("./indexer_db".to_string());
+    let cache_block = std::env::var("CACHE_BLOCK")
+        .unwrap_or("10".to_string())
+        .parse::<u32>()
+        .unwrap_or(10);
     let btc_rpc_url = std::env::var("BTC_RPC_URL").unwrap();
     let btc_rpc_username = std::env::var("BTC_RPC_USERNAME").unwrap();
     let btc_rpc_password = std::env::var("BTC_RPC_PASSWORD").unwrap();
@@ -59,6 +63,7 @@ pub extern "C" fn start_processor() {
             password: btc_rpc_password,
         },
         db_path,
+        save_block_cache_count: cache_block,
     });
     let old = get_option_notifier();
     *old = Some(ret);

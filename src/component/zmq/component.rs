@@ -270,6 +270,7 @@ mod tests {
             },
             net: Default::default(),
             db_path: "./db".to_string(),
+            save_block_cache_count: 10,
         };
         let (tx, _) = async_channel::unbounded();
         let wg = AsyncWaitGroup::new();
@@ -298,6 +299,7 @@ mod tests {
             },
             net: Default::default(),
             db_path: "./db".to_string(),
+            save_block_cache_count: 10,
         };
         let (tx, _) = async_channel::unbounded();
         let node = ZeroMQNode::new(config, tx, Arc::new(AtomicBool::new(true)));

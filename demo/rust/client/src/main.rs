@@ -31,6 +31,7 @@ pub async fn main() {
                 password: "bitcoinrpc".to_string(),
             },
             db_path: "./db".to_string(),
+            save_block_cache_count: 10,
         },
     )
     .await;
@@ -126,8 +127,12 @@ impl<T: StorageProcessor + Clone + 'static> Executor<T> {
                 self.client.report_height(self.height).await.unwrap();
                 Ok(None)
             }
-            _ => {
-                info!("ignore event");
+            ClientEvent::TxDroped(tx_id) => {
+                info!("tx droped:{:?}", tx_id);
+                Ok(None)
+            }
+            ClientEvent::TxConfirmed(tx_id) => {
+                info!("tx confirmed:{:?}", tx_id);
                 Ok(None)
             }
         }

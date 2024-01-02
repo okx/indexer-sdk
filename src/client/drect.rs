@@ -65,8 +65,8 @@ impl<T: StorageProcessor + Clone> Client for DirectClient<T> {
     async fn report_height(&self, height: u32) -> IndexerResult<()> {
         self.base.report_height(height).await
     }
-    async fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()> {
-        self.base.report_reorg(txs).await
+    async fn report_reorg(&self, number: u32) -> IndexerResult<()> {
+        self.base.report_reorg(number).await
     }
 }
 
@@ -99,10 +99,12 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
         Ok(())
     }
 
-    fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()> {
+    fn report_reorg(&self, org_number: u32) -> IndexerResult<()> {
         self.base
             .tx
-            .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::ReportReorg(txs)))
+            .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::ReportReorg(
+                org_number,
+            )))
             .unwrap();
         Ok(())
     }

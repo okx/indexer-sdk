@@ -2,7 +2,7 @@ use crate::client::event::ClientEvent;
 use crate::client::Client;
 use crate::dispatcher::event::DispatchEvent;
 use crate::error::IndexerResult;
-use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
+use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType};
 use crate::types::delta::TransactionDelta;
 use log::debug;
 
@@ -55,9 +55,11 @@ impl Client for CommonClient {
             .unwrap();
         Ok(())
     }
-    async fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()> {
+    async fn report_reorg(&self, number: u32) -> IndexerResult<()> {
         self.tx
-            .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::ReportReorg(txs)))
+            .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::ReportReorg(
+                number,
+            )))
             .unwrap();
         Ok(())
     }

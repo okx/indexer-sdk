@@ -60,6 +60,7 @@ pub async fn async_create_and_start_processor(
     let index_processor = {
         let (tx, rx) = async_channel::unbounded();
         let indexer_processor = IndexerProcessorImpl::new(
+            origin_cfg.clone(),
             wg.clone(),
             notify_tx.clone(),
             processor.clone(),

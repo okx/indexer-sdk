@@ -176,8 +176,8 @@ mod tests {
         let couples = db.iter_all_mut(&prefix, |k| k, |v| Some(v)).unwrap();
         assert_eq!(couples.len(), couple.len());
         let mut data: HashMap<Vec<u8>, Vec<u8>> = HashMap::default();
-        for (k, v) in &couples {
-            let (tx_hash, kk) = KeyPrefix::split_tx_key_trace(k);
+        for (k, _) in &couples {
+            let (_, kk) = KeyPrefix::split_tx_key_trace(k);
             let vv = db.get(&kk).unwrap().unwrap();
             data.insert(kk, vv);
         }

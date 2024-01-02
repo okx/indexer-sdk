@@ -3,6 +3,7 @@ pub struct IndexerConfiguration {
     pub mq: ZMQConfiguration,
     pub net: NetConfiguration,
     pub db_path: String,
+    pub save_block_cache_count: u32,
 }
 
 #[derive(Clone, Debug)]

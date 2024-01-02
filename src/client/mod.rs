@@ -15,7 +15,7 @@ pub mod ffi;
 pub trait Client: Send + Sync {
     async fn get_event(&self) -> IndexerResult<Option<ClientEvent>>;
     async fn report_height(&self, height: u32) -> IndexerResult<()>;
-    async fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()>;
+    async fn report_reorg(&self, number: u32) -> IndexerResult<()>;
     async fn push_event(&self, event: DispatchEvent) -> IndexerResult<()>;
     async fn get_balance(
         &mut self,
@@ -31,7 +31,7 @@ pub trait Client: Send + Sync {
 pub trait SyncClient: Send + Sync {
     fn get_event(&self) -> IndexerResult<Option<ClientEvent>>;
     fn report_height(&self, height: u32) -> IndexerResult<()>;
-    fn report_reorg(&self, txs: Vec<TxIdType>) -> IndexerResult<()>;
+    fn report_reorg(&self, org_number: u32) -> IndexerResult<()>;
     fn push_event(&self, event: IndexerEvent) -> IndexerResult<()>;
     fn get_balance(
         &mut self,

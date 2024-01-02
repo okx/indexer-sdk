@@ -243,7 +243,7 @@ impl<T: DB + Send + Sync + Clone> KVStorageProcessor<T> {
         let key = KeyPrefix::build_height_txs_key(height);
         let ret = self.db.get(key.as_slice())?;
         let data = if ret.is_none() {
-            let mut data = HashSet::new();
+            let data = HashSet::new();
             data
         } else {
             let data = ret.unwrap();
