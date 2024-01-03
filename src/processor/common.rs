@@ -282,12 +282,12 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             let prev_tx_id: TxIdType = input.previous_output.txid.into();
             let mut prev_node = self.analyses.get_mut(&prev_tx_id);
             if prev_node.is_none() {
-                let tx_node = TxNode::new(prev_tx_id.clone());
-                tx_node.nexts.add(current_node.clone());
+                let mut tx_node = TxNode::new(prev_tx_id.clone());
+                tx_node.nexts.insert(current_node.clone());
                 self.analyses.insert(prev_tx_id, tx_node);
             } else {
-                let prev_node = prev_node.unwrap();
-                prev_node.nexts.add(current_node.clone());
+                let mut prev_node = prev_node.unwrap();
+                prev_node.nexts.insert(current_node.clone());
             }
         }
     }
@@ -306,7 +306,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             }
             let nexts = node.nexts.clone();
             for next in nexts {
-                ret.extend(self.loop_re_dispatch_by_tx_id(&next.current_hash));
+                ret.extend(self.get_current_child_by_tx_id(&next.current_hash));
             }
         }
         ret
@@ -384,9 +384,10 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         let h = self.current_indexer_height.unwrap();
         self.wait_catchup(self.grap_rx.clone()).await?;
         self.clean(h).await?;
+        let rx = self.grap_rx.clone();
         // maybe we need to flush the grap_tx?
         loop {
-            let res = self.grap_tx.try_recv();
+            let res = rx.try_recv();
             if res.is_err() {
                 break;
             }
