@@ -118,7 +118,6 @@ impl CommonClient {
 
     pub fn get(&self) -> Vec<u8> {
         let data = self.do_get_data().unwrap();
-        debug!("get event:{:?}", &data);
         if data.is_none() {
             return vec![];
         }

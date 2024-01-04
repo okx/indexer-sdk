@@ -28,7 +28,7 @@ pub async fn async_create_and_start_processor(
     Arc<Runtime>,
 ) {
     env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
+        .filter_level(origin_cfg.log_configuration.log_level.clone())
         .format_target(false)
         .init();
 

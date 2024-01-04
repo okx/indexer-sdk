@@ -263,15 +263,7 @@ mod tests {
 
     #[tokio::test]
     pub async fn test_asd() {
-        let config = IndexerConfiguration {
-            mq: ZMQConfiguration {
-                zmq_url: "tcp://0.0.0.0:5555".to_string(),
-                zmq_topic: vec![],
-            },
-            net: Default::default(),
-            db_path: "./db".to_string(),
-            save_block_cache_count: 10,
-        };
+        let config = IndexerConfiguration::default();
         let (tx, _) = async_channel::unbounded();
         let wg = AsyncWaitGroup::new();
         let mut component =
@@ -292,15 +284,9 @@ mod tests {
             .format_target(false)
             .init();
         let (exit_tx, exit_rx) = watch::channel(());
-        let config = IndexerConfiguration {
-            mq: ZMQConfiguration {
-                zmq_url: "tcp://0.0.0.0:28332".to_string(),
-                zmq_topic: vec![],
-            },
-            net: Default::default(),
-            db_path: "./db".to_string(),
-            save_block_cache_count: 10,
-        };
+        let mut config = IndexerConfiguration::default();
+        config.mq.zmq_url = "tcp://0.0.0.0:28332".to_string();
+
         let (tx, _) = async_channel::unbounded();
         let node = ZeroMQNode::new(config, tx, Arc::new(AtomicBool::new(true)));
         let wg = AsyncWaitGroup::new();

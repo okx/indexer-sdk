@@ -1,7 +1,9 @@
 use crate::client::drect::DirectClient;
 use crate::client::event::RequestEvent;
 use crate::client::SyncClient;
-use crate::configuration::base::{IndexerConfiguration, NetConfiguration, ZMQConfiguration};
+use crate::configuration::base::{
+    IndexerConfiguration, LogConfiguration, NetConfiguration, ZMQConfiguration,
+};
 use crate::event::IndexerEvent;
 use crate::factory::common::sync_create_and_start_processor;
 use crate::storage::db::memory::MemoryDB;
@@ -50,6 +52,19 @@ pub extern "C" fn start_processor() {
     let btc_rpc_username = std::env::var("BTC_RPC_USERNAME").unwrap();
     let btc_rpc_password = std::env::var("BTC_RPC_PASSWORD").unwrap();
 
+    let log_level = std::env::var("LOG_LEVEL").unwrap_or("debug".to_string());
+    let log_level = if log_level == "debug" {
+        log::Level::Debug
+    } else if log_level == "info" {
+        log::Level::Info
+    } else if log_level == "warn" {
+        log::Level::Warn
+    } else if log_level == "error" {
+        log::Level::Error
+    } else {
+        log::Level::Info
+    };
+
     info!("zmq_url: {}, zmq_topics: {}", zmq_url, zmq_topics);
     let zmq_topics: Vec<String> = zmq_topics.split(",").map(|v| v.to_string()).collect();
     let ret = sync_create_and_start_processor(IndexerConfiguration {
@@ -64,6 +79,7 @@ pub extern "C" fn start_processor() {
         },
         db_path,
         save_block_cache_count: cache_block,
+        log_configuration: LogConfiguration { log_level },
     });
     let old = get_option_notifier();
     *old = Some(ret);
@@ -74,7 +90,6 @@ pub extern "C" fn get_event() -> ByteArray {
     let notifier = get_notifier();
     let binding = notifier.get().into_boxed_slice();
     let l = binding.len();
-    info!("receive ffi send data: {:?},len:{:?}", &binding, l);
     let ptr = Box::into_raw(binding) as *const u8;
     std::mem::forget(ptr);
     ByteArray {

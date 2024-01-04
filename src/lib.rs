@@ -240,15 +240,7 @@ mod tests {
 
     #[test]
     pub fn test_notifier() {
-        let notifier = sync_create_and_start_processor(IndexerConfiguration {
-            mq: ZMQConfiguration {
-                zmq_url: "tcp://0.0.0.0:28332".to_string(),
-                zmq_topic: vec!["".to_string()],
-            },
-            net: Default::default(),
-            db_path: "./db".to_string(),
-            save_block_cache_count: 10,
-        });
+        let notifier = sync_create_and_start_processor(IndexerConfiguration::default());
         loop {
             let data = notifier.get();
             if data.len() > 0 {
