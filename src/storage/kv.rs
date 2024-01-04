@@ -225,6 +225,10 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
 
         Ok(())
     }
+
+    async fn remove_tx_traces(&mut self, tx_id: Vec<TxIdType>) -> IndexerResult<()> {
+        self.db.remove_tx_traces(tx_id)
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]

@@ -51,4 +51,6 @@ pub trait SyncClient: Send + Sync {
     fn simple_set(&mut self, tx_id: &TxIdType, key: &[u8], value: Vec<u8>) -> IndexerResult<()>;
 
     fn simple_get(&mut self, key: &[u8]) -> IndexerResult<Option<Vec<u8>>>;
+
+    fn remove_tx_traces(&mut self, tx_id: Vec<TxIdType>) -> IndexerResult<()>;
 }

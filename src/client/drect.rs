@@ -154,4 +154,10 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
             .rt
             .block_on(async { self.storage.simple_get(key).await })?)
     }
+
+    fn remove_tx_traces(&mut self, tx_id: Vec<TxIdType>) -> IndexerResult<()> {
+        Ok(self
+            .rt
+            .block_on(async { self.storage.remove_tx_traces(tx_id).await })?)
+    }
 }

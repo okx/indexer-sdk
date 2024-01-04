@@ -126,4 +126,11 @@ impl<T: StorageProcessor> StorageProcessor for ThreadSafeStorageProcessor<T> {
         *write += 1;
         Ok(())
     }
+
+    async fn remove_tx_traces(&mut self, tx_id: Vec<TxIdType>) -> IndexerResult<()> {
+        let mut write = self.rw_lock.write().await;
+        self.internal.remove_tx_traces(tx_id).await?;
+        *write += 1;
+        Ok(())
+    }
 }
