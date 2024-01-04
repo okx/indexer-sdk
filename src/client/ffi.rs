@@ -54,15 +54,15 @@ pub extern "C" fn start_processor() {
 
     let log_level = std::env::var("LOG_LEVEL").unwrap_or("debug".to_string());
     let log_level = if log_level == "debug" {
-        log::Level::Debug
+        log::LevelFilter::Debug
     } else if log_level == "info" {
-        log::Level::Info
+        log::LevelFilter::Info
     } else if log_level == "warn" {
-        log::Level::Warn
+        log::LevelFilter::Warn
     } else if log_level == "error" {
-        log::Level::Error
+        log::LevelFilter::Error
     } else {
-        log::Level::Info
+        log::LevelFilter::Info
     };
 
     info!("zmq_url: {}, zmq_topics: {}", zmq_url, zmq_topics);

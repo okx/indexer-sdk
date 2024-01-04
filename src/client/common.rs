@@ -102,11 +102,11 @@ impl CommonClient {
             Err(_) => Ok(None),
         };
     }
-    pub(crate) fn block_get_data(&self) -> IndexerResult<Option<ClientEvent>> {
+    pub(crate) fn block_get_data(&self) -> IndexerResult<ClientEvent> {
         let res = self.rx.recv_blocking();
         return match res {
-            Ok(ret) => Ok(Some(ret)),
-            Err(_) => Ok(None),
+            Ok(ret) => Ok(ret),
+            Err(_) => panic!("recv error"),
         };
     }
 
@@ -129,10 +129,6 @@ impl CommonClient {
     pub fn block_get(&self) -> Vec<u8> {
         let data = self.block_get_data().unwrap();
         debug!("get event:{:?}", &data);
-        if data.is_none() {
-            return vec![];
-        }
-        let data = data.unwrap();
         let raw_data = data.to_bytes();
         raw_data
     }

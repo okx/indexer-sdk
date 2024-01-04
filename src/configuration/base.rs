@@ -31,7 +31,7 @@ impl Default for IndexerConfiguration {
             db_path: "./indexerdb".to_string(),
             save_block_cache_count: 10,
             log_configuration: LogConfiguration {
-                log_level: Level::Debug,
+                log_level: Level::Debug.to_level_filter(),
             },
         }
     }

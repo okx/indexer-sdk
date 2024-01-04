@@ -89,6 +89,10 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
         self.base.do_get_data()
     }
 
+    fn block_get_event(&self) -> IndexerResult<ClientEvent> {
+        self.base.block_get_data()
+    }
+
     fn report_height(&self, height: u32) -> IndexerResult<()> {
         self.base
             .tx

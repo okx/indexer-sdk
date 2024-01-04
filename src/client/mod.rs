@@ -30,6 +30,7 @@ pub trait Client: Send + Sync {
 #[async_trait::async_trait]
 pub trait SyncClient: Send + Sync {
     fn get_event(&self) -> IndexerResult<Option<ClientEvent>>;
+    fn block_get_event(&self) -> IndexerResult<ClientEvent>;
     fn report_height(&self, height: u32) -> IndexerResult<()>;
     fn report_reorg(&self, org_number: u32) -> IndexerResult<()>;
     fn push_event(&self, event: IndexerEvent) -> IndexerResult<()>;
