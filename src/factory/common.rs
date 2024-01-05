@@ -27,11 +27,6 @@ pub async fn async_create_and_start_processor(
     Vec<JoinHandle<()>>,
     Arc<Runtime>,
 ) {
-    env_logger::builder()
-        .filter_level(origin_cfg.log_configuration.log_level.clone())
-        .format_target(false)
-        .init();
-
     let rt = Arc::new(
         runtime::Builder::new_current_thread()
             .enable_all()
