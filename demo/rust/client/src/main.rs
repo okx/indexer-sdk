@@ -171,6 +171,7 @@
 use indexer_sdk::configuration::base::IndexerConfiguration;
 use indexer_sdk::configuration::base::ZMQConfiguration;
 use indexer_sdk::factory::common::sync_create_and_start_processor;
+use log::LevelFilter;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -185,6 +186,10 @@ use storage::MockStorage;
 use sync::MockSync;
 
 fn main() {
+    env_logger::builder()
+        .filter_level(LevelFilter::Debug)
+        .format_target(false)
+        .init();
     let client = sync_create_and_start_processor(IndexerConfiguration {
         mq: ZMQConfiguration {
             zmq_url: "tcp://0.0.0.0:28332".to_string(),

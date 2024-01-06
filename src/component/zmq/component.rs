@@ -4,7 +4,7 @@ use crate::error::IndexerResult;
 use crate::event::{IndexerEvent, TxIdType};
 use crate::factory::common::create_client_from_configuration;
 use crate::{Component, HookComponent};
-use bitcoincore_rpc::bitcoin::consensus::deserialize;
+use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
 use bitcoincore_rpc::bitcoin::hashes::Hash;
 use bitcoincore_rpc::bitcoin::{Block, BlockHash, Transaction};
 use bitcoincore_rpc::RpcApi;
@@ -13,6 +13,7 @@ use may::go;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use std::vec;
 use tokio::sync::watch::Receiver;
 use tokio::task::JoinHandle;
 use wg::AsyncWaitGroup;
@@ -103,7 +104,7 @@ impl ZeroMQNode {
             //     socket.subscribe(topic).await.unwrap();
             // }
             socket.subscribe("sequence").await.unwrap();
-            socket.subscribe("rawtx").await.unwrap();
+            socket.subscribe("rawblock").await.unwrap();
             wg.done();
             loop {
                 tokio::select! {
@@ -147,7 +148,7 @@ impl ZeroMQNode {
         let body = data.get(1).unwrap();
         let sequence = data.get(2).unwrap();
         let topic = String::from_utf8_lossy(&topic[..]).to_string();
-        let event = if topic == "rawtx" {
+        let events = if topic == "rawtx" {
             let raw_tx_data = body.to_vec();
             let transaction: Transaction =
                 deserialize(&raw_tx_data).expect("Failed to deserialize transaction");
@@ -159,7 +160,7 @@ impl ZeroMQNode {
                 sequence_number
             );
             let event = IndexerEvent::NewTxComing(raw_tx_data, sequence_number);
-            Some(event)
+            vec![event]
         } else if topic == "hashblock" {
             let data = body.to_vec();
             let block_hash = hex::encode(&data);
@@ -204,7 +205,7 @@ impl ZeroMQNode {
                 }
             });
 
-            None
+            vec![]
         } else if topic == "hashtx" {
             let tx_hash = hex::encode(&body.to_vec());
             let sequence_number =
@@ -213,12 +214,23 @@ impl ZeroMQNode {
                 "receive new tx hash:{},sequence:{}",
                 tx_hash, sequence_number
             );
-            None
+            vec![]
         } else if topic == "rawblock" {
             let sequence_number =
                 u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
-            info!("receive new raw block,sequence:{}", sequence_number);
-            None
+            let body = &body.to_vec();
+            let new_block = deserialize::<Block>(&body).expect("Failed to deserialize block");
+            info!(
+                "receive new raw block,sequence:{},hash:{:?}",
+                sequence_number,
+                new_block.block_hash()
+            );
+            let events = new_block
+                .txdata
+                .iter()
+                .map(|tx| IndexerEvent::TxConfirmed(tx.txid().into()))
+                .collect::<Vec<IndexerEvent>>();
+            events
         } else if topic == "sequence" {
             let hash = hex::encode(&body[..32]);
             let label = body[32] as char;
@@ -227,24 +239,26 @@ impl ZeroMQNode {
                 topic, hash, label
             );
             if label == 'R' {
-                Some(IndexerEvent::TxRemoved(TxIdType::from(hash)))
+                vec![IndexerEvent::TxRemoved(TxIdType::from(hash))]
             } else if label == 'A' {
-                // ignore,we will listen the rawtx event
-                None
+                let tx_hash = TxIdType::from(hash).into();
+                let tx = self.client.get_raw_transaction(&tx_hash, None)?;
+                let tx = serialize(&tx);
+                vec![IndexerEvent::NewTxComing(tx, 0)]
             } else if label == 'C' {
-                Some(IndexerEvent::TxConfirmed(TxIdType::from(hash)))
+                vec![IndexerEvent::TxConfirmed(TxIdType::from(hash))]
             } else {
                 warn!(
                     "receive unknown label:{:?},maybe we need to handle it",
                     label
                 );
-                None
+                vec![]
             }
         } else {
             warn!("receive unknown topic:{:?}", topic);
-            None
+            vec![]
         };
-        if let Some(event) = event {
+        for event in events {
             self.sender
                 .send(DispatchEvent::IndexerEvent(event))
                 .await

@@ -7,6 +7,7 @@ use crate::configuration::base::{
 use crate::event::IndexerEvent;
 use crate::factory::common::sync_create_and_start_processor;
 use crate::storage::db::memory::MemoryDB;
+use crate::storage::db::thread_safe::ThreadSafeDB;
 use crate::storage::kv::KVStorageProcessor;
 use core::ffi::c_char;
 use log::{info, warn};
@@ -15,16 +16,18 @@ use std::ffi::CStr;
 use std::ffi::CString;
 use std::ops::DerefMut;
 
-static mut NOTIFIER: Lazy<Option<DirectClient<KVStorageProcessor<MemoryDB>>>> = Lazy::new(|| None);
+static mut NOTIFIER: Lazy<Option<DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>>>> =
+    Lazy::new(|| None);
 
-fn get_notifier() -> &'static mut DirectClient<KVStorageProcessor<MemoryDB>> {
+fn get_notifier() -> &'static mut DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>> {
     unsafe {
         let ret = NOTIFIER.deref_mut();
         ret.as_mut().unwrap()
     }
 }
 
-fn get_option_notifier() -> &'static mut Option<DirectClient<KVStorageProcessor<MemoryDB>>> {
+fn get_option_notifier(
+) -> &'static mut Option<DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>>> {
     unsafe {
         let ret = NOTIFIER.deref_mut();
         ret

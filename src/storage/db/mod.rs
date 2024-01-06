@@ -1,6 +1,7 @@
 pub mod level_db;
 pub mod memory;
 pub mod prefix;
+pub mod thread_safe;
 
 use crate::error::IndexerResult;
 use crate::event::TxIdType;

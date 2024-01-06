@@ -1,10 +1,12 @@
 use crate::client::common::CommonClient;
 use crate::client::drect::DirectClient;
+use crate::component::catchup::CacheUpComponent;
 use crate::component::zmq::component::ZeroMQComponent;
 use crate::configuration::base::IndexerConfiguration;
 use crate::dispatcher::Dispatcher;
 use crate::processor::common::IndexerProcessorImpl;
 use crate::storage::db::memory::MemoryDB;
+use crate::storage::db::thread_safe::ThreadSafeDB;
 use crate::storage::kv::KVStorageProcessor;
 use crate::{wait_exit_signal, ComponentTemplate};
 use bitcoincore_rpc::{Auth, Client};
@@ -23,7 +25,7 @@ pub async fn async_create_and_start_processor(
     origin_exit: watch::Receiver<()>,
     origin_cfg: IndexerConfiguration,
 ) -> (
-    DirectClient<KVStorageProcessor<MemoryDB>>,
+    DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>>,
     Vec<JoinHandle<()>>,
     Arc<Runtime>,
 ) {
@@ -41,7 +43,7 @@ pub async fn async_create_and_start_processor(
     }));
     let flag = Arc::new(AtomicBool::new(false));
     // let db = LevelDB::new(origin_cfg.db_path.as_str()).unwrap();
-    let db = MemoryDB::default();
+    let db = ThreadSafeDB::new(MemoryDB::default());
     let processor = KVStorageProcessor::new(db);
     let client = Arc::new(create_client_from_configuration(origin_cfg.clone()));
     let (notify_tx, notify_rx) = async_channel::unbounded();
@@ -51,6 +53,7 @@ pub async fn async_create_and_start_processor(
 
     let wg = AsyncWaitGroup::new();
     let mq_wg = wg.add(1);
+    let catch_up_wg = wg.add(1);
 
     let index_processor = {
         let (tx, rx) = async_channel::unbounded();
@@ -74,6 +77,11 @@ pub async fn async_create_and_start_processor(
     //     client.clone(),
     //     notify_tx.clone(),
     // ));
+    let catchup = ComponentTemplate::new(CacheUpComponent::new(
+        client.clone(),
+        catch_up_wg,
+        tx.clone(),
+    ));
 
     let zmq = ComponentTemplate::new(ZeroMQComponent::new(
         mq_wg,
@@ -83,7 +91,7 @@ pub async fn async_create_and_start_processor(
     ));
 
     dispatcher.register_component(Box::new(index_processor));
-    // dispatcher.register_component(Box::new(wait_cachup));
+    dispatcher.register_component(Box::new(catchup));
     dispatcher.register_component(Box::new(zmq));
 
     dispatcher.init(origin_cfg.clone()).await.unwrap();
@@ -109,7 +117,7 @@ pub(crate) fn create_client_from_configuration(
 
 pub fn sync_create_and_start_processor(
     origin_cfg: IndexerConfiguration,
-) -> DirectClient<KVStorageProcessor<MemoryDB>> {
+) -> DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>> {
     let (tx, rx) = watch::channel(());
     let rt = Runtime::new().unwrap();
     let ret = rt.block_on(async_create_and_start_processor(rx, origin_cfg));

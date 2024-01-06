@@ -347,9 +347,10 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     async fn do_handle_tx_confirmed(
         &mut self,
         tx_id: &TxIdType,
-        status: DeltaStatus,
+        _: DeltaStatus,
     ) -> IndexerResult<()> {
-        self.storage.remove_transaction_delta(tx_id, status).await?;
+        info!("do_handle_tx_confirmed,tx_id:{:?}", tx_id);
+        self.storage.remove_tx_traces(vec![tx_id.clone()]).await?;
         Ok(())
     }
     async fn do_handle_restore_tx_by_tx_id(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {

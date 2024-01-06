@@ -2,6 +2,7 @@ use indexer_sdk::client::drect::DirectClient;
 use indexer_sdk::client::SyncClient;
 use indexer_sdk::event::TxIdType;
 use indexer_sdk::storage::db::memory::MemoryDB;
+use indexer_sdk::storage::db::thread_safe::ThreadSafeDB;
 use indexer_sdk::storage::kv::KVStorageProcessor;
 
 #[derive(Clone)]
@@ -16,7 +17,7 @@ impl ConfirmedDB {
 
 #[derive(Clone)]
 pub struct MockStorage {
-    client: DirectClient<KVStorageProcessor<MemoryDB>>,
+    client: DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>>,
 
     confirmed_db: ConfirmedDB,
 }
@@ -33,7 +34,7 @@ impl MockStorage {
         }
         return self.client.simple_get(key).unwrap();
     }
-    pub fn new(client: DirectClient<KVStorageProcessor<MemoryDB>>) -> Self {
+    pub fn new(client: DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>>) -> Self {
         Self {
             client,
             confirmed_db: ConfirmedDB {},

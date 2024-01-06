@@ -6,6 +6,7 @@ use indexer_sdk::client::event::ClientEvent;
 use indexer_sdk::client::SyncClient;
 use indexer_sdk::event::TxIdType;
 use indexer_sdk::storage::db::memory::MemoryDB;
+use indexer_sdk::storage::db::thread_safe::ThreadSafeDB;
 use indexer_sdk::storage::kv::KVStorageProcessor;
 use indexer_sdk::types::delta::TransactionDelta;
 use std::cell::RefCell;
@@ -15,7 +16,7 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct MockPending {
-    pub(crate) client: DirectClient<KVStorageProcessor<MemoryDB>>,
+    pub(crate) client: DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>>,
     pub(crate) synchronizer: Rc<RefCell<MockSync>>,
 
     pub stroage: MockStorage,
@@ -40,7 +41,7 @@ impl MockPending {
         match event {
             ClientEvent::Transaction(tx) => {
                 let response = self.simulate_tx(tx);
-                self.client.update_delta(response).unwrap();
+                // self.client.update_delta(response).unwrap();
             }
             ClientEvent::TxDroped(tx) => {
                 self.client.remove_tx_traces(vec![tx.clone()]).unwrap();
@@ -65,9 +66,9 @@ impl MockPending {
         }
 
         //  remove traces
-        for (h, txs) in last_traces {
-            self.client.remove_tx_traces(txs).unwrap();
-        }
+        // for (h, txs) in last_traces {
+        //     self.client.remove_tx_traces(txs).unwrap();
+        // }
 
         let tx_id: TxIdType = tx.txid().into();
 
@@ -82,7 +83,7 @@ impl MockPending {
         };
     }
     pub fn new(
-        client: DirectClient<KVStorageProcessor<MemoryDB>>,
+        client: DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>>,
         synchronizer: Rc<RefCell<MockSync>>,
         stroage: MockStorage,
         block_confirmed: async_channel::Receiver<(u32, Vec<TxIdType>)>,
