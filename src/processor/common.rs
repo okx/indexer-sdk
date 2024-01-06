@@ -262,9 +262,10 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 return self.restart().await;
             }
 
-            self.storage
-                .save_height_tx(latest_indexer_height, tx_id.clone())
-                .await?;
+            // sdk dont need to save height=>txs mapping,because indexer only use zmq
+            // self.storage
+            //     .save_height_tx(latest_indexer_height, tx_id.clone())
+            //     .await?;
             self.tx.send(ClientEvent::Transaction(tx)).await.unwrap();
         }
         Ok(())
