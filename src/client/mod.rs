@@ -4,6 +4,7 @@ use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
 use crate::types::response::AllBalanceResponse;
+use std::sync::Arc;
 
 pub mod common;
 
@@ -54,4 +55,6 @@ pub trait SyncClient: Send + Sync {
     fn simple_get(&mut self, key: &[u8]) -> IndexerResult<Option<Vec<u8>>>;
 
     fn remove_tx_traces(&mut self, tx_id: Vec<TxIdType>) -> IndexerResult<()>;
+
+    fn get_btc_client(&self) -> Arc<bitcoincore_rpc::Client>;
 }

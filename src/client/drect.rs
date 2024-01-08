@@ -15,6 +15,7 @@ use tokio::runtime::Runtime;
 #[derive(Clone)]
 pub struct DirectClient<T: StorageProcessor + Clone> {
     rt: Arc<Runtime>,
+    btc_client: Option<Arc<bitcoincore_rpc::Client>>,
     storage: T,
     pub(crate) base: CommonClient,
 }
@@ -26,14 +27,25 @@ impl<T: StorageProcessor + Clone + Default> Default for DirectClient<T> {
             .unwrap();
         Self {
             rt: Arc::new(rt),
+            btc_client: None,
             storage: T::default(),
             base: CommonClient::default(),
         }
     }
 }
 impl<T: StorageProcessor + Clone> DirectClient<T> {
-    pub fn new(rt: Arc<Runtime>, storage: T, base: CommonClient) -> Self {
-        Self { rt, storage, base }
+    pub fn new(
+        rt: Arc<Runtime>,
+        btc_client: Arc<bitcoincore_rpc::Client>,
+        storage: T,
+        base: CommonClient,
+    ) -> Self {
+        Self {
+            rt,
+            btc_client: Some(btc_client),
+            storage,
+            base,
+        }
     }
 }
 
@@ -163,5 +175,9 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
         Ok(self
             .rt
             .block_on(async { self.storage.remove_tx_traces(tx_id).await })?)
+    }
+
+    fn get_btc_client(&self) -> Arc<bitcoincore_rpc::Client> {
+        self.btc_client.clone().unwrap()
     }
 }
