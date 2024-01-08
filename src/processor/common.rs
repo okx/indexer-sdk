@@ -352,6 +352,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     ) -> IndexerResult<()> {
         info!("do_handle_tx_confirmed,tx_id:{:?}", tx_id);
         self.storage.remove_tx_traces(vec![tx_id.clone()]).await?;
+        self.analyses.remove(tx_id);
         Ok(())
     }
     async fn do_handle_restore_tx_by_tx_id(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
