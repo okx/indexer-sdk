@@ -175,10 +175,6 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
                         break;
                     }
                 }
-                if exit.changed().await.is_ok() {
-                    info!("receive exit signal, exit.");
-                    break;
-                }
             }
         } else {
             let interval = interval.unwrap();
