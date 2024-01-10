@@ -154,7 +154,7 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> HookComponent<E> for Compone
     }
 }
 impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
-    async fn on_start(&mut self, _: watch::Receiver<()>) -> IndexerResult<()> {
+    async fn on_start(&mut self, mut exit: watch::Receiver<()>) -> IndexerResult<()> {
         info!("component {} starting", self.component_name());
         let tx = self.event_tx();
         let rx = self.rx.clone();
@@ -174,6 +174,10 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
                         log::error!("receive event error: {:?}", e);
                         break;
                     }
+                }
+                if exit.changed().await.is_ok() {
+                    info!("receive exit signal, exit.");
+                    break;
                 }
             }
         } else {
@@ -199,6 +203,11 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
                             warn!("handle tick event error: {:?}", e)
                         }
                     }
+                    _ = exit.changed() => {
+                    info!("receive exit signal, exit.");
+                    break;
+                 }
+
                 }
             }
         }
