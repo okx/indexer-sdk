@@ -163,17 +163,24 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
         let interval = self.interval();
         if interval.is_none() {
             loop {
-                let event = rx.recv().await;
-                match event {
-                    Ok(event) => {
-                        if let Err(e) = self.handle_event(&event).await {
-                            log::error!("handle event error: {:?}", e);
+                tokio::select! {
+                    event=rx.recv()=>{
+                         match event{
+                             Ok(event) => {
+                                 if let Err(e)= self.handle_event(&event).await{
+                                         log::error!("handle event error: {:?}", e);
+                                 }
+                             }
+                             Err(e) => {
+                                 log::error!("receive event error: {:?}", e);
+                                 break;
+                             }
+                         }
+                       },
+                     _ = exit.changed() => {
+                    info!("receive exit signal, exit.");
+                    break;
                         }
-                    }
-                    Err(e) => {
-                        log::error!("receive event error: {:?}", e);
-                        break;
-                    }
                 }
             }
         } else {
