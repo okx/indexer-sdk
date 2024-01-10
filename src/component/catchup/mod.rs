@@ -94,7 +94,7 @@ impl CacheUpComponent {
             if synced {
                 info!("synced,start to send events:{}", i);
                 for event in events {
-                    let _ = self.tx.send(event).await;
+                    let _ = self.tx.send_blocking(event);
                 }
             }
 
