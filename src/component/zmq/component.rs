@@ -140,7 +140,7 @@ impl ZeroMQNode {
             warn!("receive empty message");
             return Ok(());
         }
-        if data.len() != 3 {
+        if data.len() < 3 {
             warn!("receive invalid message:{:?}", &data);
             return Ok(());
         }
