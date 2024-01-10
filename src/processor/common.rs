@@ -174,10 +174,6 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                     continue;
                 }
                 let event = rx.unwrap();
-                info!(
-                    "net latest block:{},end send to,receive event:{:?}",
-                    net_latest_block, &event
-                );
                 let event = event.get_indexer_event();
                 if event.is_none() {
                     continue;
