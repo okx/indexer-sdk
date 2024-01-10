@@ -166,29 +166,33 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 error!("grap tx error:{}", e);
                 continue;
             }
-            let rx = grap_rx.recv().await;
-            if let Err(e) = rx {
-                error!("grap rx error:{}", e);
-                continue;
-            }
-            let event = rx.unwrap();
-            info!(
-                "net latest block:{},end send to,receive event:{:?}",
-                net_latest_block, &event
-            );
-            let event = event.get_indexer_event();
-            if event.is_none() {
-                continue;
-            }
-            let event = event.unwrap();
-            if let IndexerEvent::ReportHeight(h) = event {
+
+            loop {
+                let rx = grap_rx.recv().await;
+                if let Err(e) = rx {
+                    error!("grap rx error:{}", e);
+                    continue;
+                }
+                let event = rx.unwrap();
                 info!(
-                    "indexer latest height:{},chain latest height:{}",
-                    h, net_latest_block
+                    "net latest block:{},end send to,receive event:{:?}",
+                    net_latest_block, &event
                 );
-                if *h as u64 >= net_latest_block {
-                    info!("indexer catch up,waitsync done!");
-                    self.current_indexer_height = Some(*h);
+                let event = event.get_indexer_event();
+                if event.is_none() {
+                    continue;
+                }
+                let event = event.unwrap();
+                if let IndexerEvent::ReportHeight(h) = event {
+                    info!(
+                        "indexer latest height:{},chain latest height:{}",
+                        h, net_latest_block
+                    );
+                    if *h as u64 >= net_latest_block {
+                        info!("indexer catch up,waitsync done!");
+                        self.current_indexer_height = Some(*h);
+                        return Ok(());
+                    }
                     break;
                 }
             }
