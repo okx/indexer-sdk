@@ -67,7 +67,6 @@ impl<E: Event + Clone> Dispatcher<E> {
                         Ok(event) => {
                             for component in self.components.iter_mut() {
                                 if component.interest(&event).await{
-                                    hit=true;
                                     component.push_event(&event).await.unwrap();
                                 }
                             }
