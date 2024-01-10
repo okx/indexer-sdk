@@ -118,7 +118,9 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         info!("all unconsumed txs:{:?}", all_unconsumed);
         let txs = {
             // sort by timestamp to execute tx in order
+            info!("start to load mempool");
             let txs = self.btc_client.get_raw_mempool_verbose()?;
+            info!("txs in mempool,len{:?}", txs.len());
             let mut append = vec![];
             for (k, ts) in &all_unconsumed {
                 let tx_id: Txid = k.clone().into();
