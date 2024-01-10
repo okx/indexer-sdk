@@ -198,7 +198,6 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             }
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
-        Ok(())
     }
     async fn do_handle_event(&mut self, event: &IndexerEvent) -> IndexerResult<()> {
         info!("do_handle_event,event:{:?}", event);
