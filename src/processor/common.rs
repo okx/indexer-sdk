@@ -259,13 +259,13 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             let latest_chain_height = self.get_latest_chain_height()?;
             let latest_indexer_height = self.get_current_indexer_height();
 
-            if latest_chain_height > latest_indexer_height {
-                warn!(
-                    "indexer is not catch up,chain_height:{},indexer_height:{}",
-                    latest_chain_height, latest_indexer_height
-                );
-                return self.restart().await;
-            }
+            // if latest_chain_height > latest_indexer_height {
+            //     warn!(
+            //         "indexer is not catch up,chain_height:{},indexer_height:{}",
+            //         latest_chain_height, latest_indexer_height
+            //     );
+            //     return self.restart().await;
+            // }
 
             // sdk dont need to save height=>txs mapping,because indexer only use zmq
             // self.storage
