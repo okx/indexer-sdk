@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use bitcoincore_rpc::bitcoin::BlockHash;
 use bitcoincore_rpc::{Client, RpcApi};
 use log::info;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use wg::AsyncWaitGroup;
@@ -20,6 +21,7 @@ pub struct CacheUpComponent {
     wg: AsyncWaitGroup,
 
     tx: Sender<DispatchEvent>,
+    flag: Arc<AtomicBool>,
 }
 
 #[derive(Clone)]
@@ -87,9 +89,15 @@ impl CacheUpComponent {
                     DispatchEvent::IndexerEvent(TxConfirmed(tx_id_type))
                 })
                 .collect();
-            for event in events {
-                let _ = self.tx.send(event).await;
+
+            let synced = self.flag.load(Ordering::Relaxed);
+            if synced {
+                info!("synced,start to send events:{}", i);
+                for event in events {
+                    let _ = self.tx.send(event).await;
+                }
             }
+
             info!("catchup block:{}", i);
             self.current_block_info = Some(BlockWrapper {
                 height: i,
@@ -98,12 +106,18 @@ impl CacheUpComponent {
         }
         Ok(())
     }
-    pub fn new(btc_client: Arc<Client>, wg: AsyncWaitGroup, tx: Sender<DispatchEvent>) -> Self {
+    pub fn new(
+        btc_client: Arc<Client>,
+        wg: AsyncWaitGroup,
+        tx: Sender<DispatchEvent>,
+        flag: Arc<AtomicBool>,
+    ) -> Self {
         Self {
             btc_client,
             current_block_info: None,
             wg,
             tx,
+            flag,
         }
     }
 }

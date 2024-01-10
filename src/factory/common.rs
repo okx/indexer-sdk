@@ -81,6 +81,7 @@ pub async fn async_create_and_start_processor(
         client.clone(),
         catch_up_wg,
         tx.clone(),
+        flag.clone(),
     ));
 
     let zmq = ComponentTemplate::new(ZeroMQComponent::new(
