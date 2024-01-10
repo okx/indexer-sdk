@@ -65,10 +65,14 @@ impl<E: Event + Clone> Dispatcher<E> {
                     info!("recv event:{:?}", &event);
                     match event{
                         Ok(event) => {
+                            let mut hit=false;
                             for component in self.components.iter_mut() {
                                 if component.interest(&event).await{
+                                    hit=true;
                                     info!("component:{:?} interest event:{:?}", component.component_name(), &event);
                                     component.push_event(&event).await.unwrap();
+                                }else{
+                                    info!("component:{:?} not interest event:{:?}", component.component_name(), &event);
                                 }
                             }
                               // for component in self.components.iter_mut() {
