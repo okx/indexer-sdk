@@ -234,7 +234,9 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         from_restore: bool,
     ) -> IndexerResult<()> {
         let data = self.parse_zmq_data(&data);
+        info!("do_handle_new_tx_coming,data:{:?}", data);
         if let Some((tx_id, tx)) = data {
+            info!("do_handle_new_tx_coming2,data:{:?}", tx_id);
             let seen = self.storage.seen_and_store_txs(&tx).await?;
             if seen.is_seen() {
                 if from_restore {
@@ -269,7 +271,10 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             // self.storage
             //     .save_height_tx(latest_indexer_height, tx_id.clone())
             //     .await?;
+            info!("do_handle_new_tx_coming2,senddd:{:?}", tx_id);
             self.tx.send(ClientEvent::Transaction(tx)).await.unwrap();
+        } else {
+            info!("do_handle_new_tx_coming2,none");
         }
         Ok(())
     }
