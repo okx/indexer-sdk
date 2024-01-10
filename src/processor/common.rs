@@ -256,9 +256,8 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 info!("tx_id:{:?} has not been executed,start to dispatch", tx_id);
                 self.analyse_transaction(&tx);
             }
-            let latest_chain_height = self.get_latest_chain_height()?;
-            let latest_indexer_height = self.get_current_indexer_height();
-
+            // let latest_chain_height = self.get_latest_chain_height()?;
+            // let latest_indexer_height = self.get_current_indexer_height();
             // if latest_chain_height > latest_indexer_height {
             //     warn!(
             //         "indexer is not catch up,chain_height:{},indexer_height:{}",
