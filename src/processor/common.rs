@@ -161,6 +161,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 continue;
             }
             let net_latest_block = latest_block.unwrap();
+            info!("net latest block:{},start send to", net_latest_block);
             if let Err(e) = grap_tx.send(ClientEvent::GetHeight).await {
                 error!("grap tx error:{}", e);
                 continue;
@@ -171,6 +172,10 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 continue;
             }
             let event = rx.unwrap();
+            info!(
+                "net latest block:{},end send to,receive event:{:?}",
+                net_latest_block, &event
+            );
             let event = event.get_indexer_event();
             if event.is_none() {
                 continue;

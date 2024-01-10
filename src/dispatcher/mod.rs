@@ -67,6 +67,7 @@ impl<E: Event + Clone> Dispatcher<E> {
                         Ok(event) => {
                             for component in self.components.iter_mut() {
                                 if component.interest(&event).await{
+                                    info!("component:{:?} interest event:{:?}", component.component_name(), &event);
                                     component.push_event(&event).await.unwrap();
                                 }
                             }
