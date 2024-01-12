@@ -2,7 +2,7 @@ use crate::client::common::CommonClient;
 use crate::client::drect::DirectClient;
 use crate::component::catchup::CacheUpComponent;
 use crate::component::zmq::component::ZeroMQComponent;
-use crate::configuration::base::IndexerConfiguration;
+use crate::configuration::base::{IndexerConfiguration, NetConfiguration, ZMQConfiguration};
 use crate::dispatcher::Dispatcher;
 use crate::processor::common::IndexerProcessorImpl;
 use crate::storage::db::memory::MemoryDB;
@@ -21,6 +21,33 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use wg::AsyncWaitGroup;
 
+pub fn new_client_for_test(
+    url: String,
+    user_name: String,
+    password: String,
+) -> DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>> {
+    let db = ThreadSafeDB::new(MemoryDB::default());
+    let processor = KVStorageProcessor::new(db);
+    let client = Arc::new(create_client_from_configuration(IndexerConfiguration {
+        mq: ZMQConfiguration {
+            zmq_url: "".to_string(),
+            zmq_topic: vec![],
+        },
+        net: NetConfiguration {
+            url,
+            username: user_name.to_string(),
+            password,
+        },
+        db_path: "".to_string(),
+        save_block_cache_count: 1,
+        log_configuration: Default::default(),
+    }));
+    let (_, notify_rx) = async_channel::unbounded();
+    let (tx, _) = async_channel::unbounded();
+    let inner_client = CommonClient::new(notify_rx.clone(), tx.clone());
+    let rt = Arc::new(Runtime::new().unwrap());
+    DirectClient::new(rt, client, processor, inner_client)
+}
 pub async fn async_create_and_start_processor(
     origin_exit: watch::Receiver<()>,
     origin_cfg: IndexerConfiguration,
