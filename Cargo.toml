@@ -21,7 +21,8 @@ once_cell = "1.18.0"
 
 #bitcoincore-rpc-json = "0.18.0"
 #bitcoincore-rpc = "0.18.0"
-bitcoincore-rpc = "^0.17.0"
+#bitcoincore-rpc = "^0.17.0"
+ord-bitcoincore-rpc = "0.17.1"
 
 hex = "0.4.3"
 
