@@ -2,12 +2,14 @@ use crate::client::common::CommonClient;
 use crate::client::event::ClientEvent;
 use crate::client::{Client, SyncClient};
 use crate::dispatcher::event::DispatchEvent;
-use crate::error::IndexerResult;
+use crate::error::{IndexerError, IndexerResult};
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::storage::StorageProcessor;
 use crate::types::delta::TransactionDelta;
 use crate::types::response::AllBalanceResponse;
 use async_channel::Receiver;
+use bitcoincore_rpc::bitcoin::{Transaction, Txid};
+use bitcoincore_rpc::{Error, RpcApi};
 use std::sync::Arc;
 use tokio::runtime;
 use tokio::runtime::Runtime;
@@ -179,5 +181,22 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
 
     fn get_btc_client(&self) -> Arc<bitcoincore_rpc::Client> {
         self.btc_client.clone().unwrap()
+    }
+
+    fn get_transaction_by_tx_id(&self, txid: Txid) -> IndexerResult<Option<Transaction>> {
+        const NOT_EXIST_KEY: &str = "No such mempool or blockchain transaction";
+        let client = self.btc_client.as_ref().unwrap();
+        let ret = client.get_raw_transaction(&txid, None);
+        match ret {
+            Ok(v) => Ok(Some(v)),
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains(NOT_EXIST_KEY) {
+                    Ok(None)
+                } else {
+                    Err(IndexerError::BitCoinClientError(e))
+                }
+            }
+        }
     }
 }

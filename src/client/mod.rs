@@ -4,6 +4,7 @@ use crate::error::IndexerResult;
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType, TxIdType};
 use crate::types::delta::TransactionDelta;
 use crate::types::response::AllBalanceResponse;
+use bitcoincore_rpc::bitcoin::{Transaction, Txid};
 use std::sync::Arc;
 
 pub mod common;
@@ -57,4 +58,6 @@ pub trait SyncClient: Send + Sync {
     fn remove_tx_traces(&mut self, tx_id: Vec<TxIdType>) -> IndexerResult<()>;
 
     fn get_btc_client(&self) -> Arc<bitcoincore_rpc::Client>;
+
+    fn get_transaction_by_tx_id(&self, txid: Txid) -> IndexerResult<Option<Transaction>>;
 }

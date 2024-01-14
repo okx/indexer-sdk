@@ -10,11 +10,9 @@ use crate::storage::db::thread_safe::ThreadSafeDB;
 use crate::storage::kv::KVStorageProcessor;
 use crate::{wait_exit_signal, ComponentTemplate};
 use bitcoincore_rpc::{Auth, Client};
-use log::error;
-use std::process::exit;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::{panic, thread};
+use std::thread;
 use tokio::runtime;
 use tokio::runtime::Runtime;
 use tokio::sync::watch;
@@ -63,11 +61,11 @@ pub async fn async_create_and_start_processor(
             .unwrap(),
     );
 
-    panic::set_hook(Box::new(|panic_info| {
-        println!("panic occurred: {:?}", panic_info);
-        error!("panic occurred: {:?}", panic_info);
-        exit(-1);
-    }));
+    // panic::set_hook(Box::new(|panic_info| {
+    //     println!("panic occurred: {:?}", panic_info);
+    //     error!("panic occurred: {:?}", panic_info);
+    //     exit(-1);
+    // }));
     let flag = Arc::new(AtomicBool::new(false));
     // let db = LevelDB::new(origin_cfg.db_path.as_str()).unwrap();
     let db = ThreadSafeDB::new(MemoryDB::default());
