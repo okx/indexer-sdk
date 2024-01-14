@@ -113,7 +113,12 @@ impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> Component<E>
 
 #[async_trait::async_trait]
 pub trait HookComponent<E: Clone + Event>: Component<E> {
-    async fn before_start(&mut self, _: Sender<E>, _: Receiver<E>) -> IndexerResult<()> {
+    async fn before_start(
+        &mut self,
+        _: Sender<E>,
+        _: Receiver<E>,
+        exit: watch::Receiver<()>,
+    ) -> IndexerResult<()> {
         Ok(())
     }
 
@@ -136,8 +141,9 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> HookComponent<E> for Compone
         &mut self,
         sender: Sender<E>,
         receiver: Receiver<E>,
+        exit: watch::Receiver<()>,
     ) -> IndexerResult<()> {
-        self.internal.before_start(sender, receiver).await
+        self.internal.before_start(sender, receiver, exit).await
     }
 
     fn interval(&self) -> Option<Duration> {
@@ -158,7 +164,7 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
         info!("component {} starting", self.component_name());
         let tx = self.event_tx();
         let rx = self.rx.clone();
-        self.internal.before_start(tx, rx).await?;
+        self.internal.before_start(tx, rx, exit.clone()).await?;
         let rx = self.rx.clone();
         let interval = self.interval();
         if interval.is_none() {
@@ -178,7 +184,8 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
                          }
                        },
                      _ = exit.changed() => {
-                    info!("receive exit signal, exit.");
+                    let name=self.component_name();
+                    info!("{:?},receive exit signal, exit.",name);
                     break;
                         }
                 }
@@ -207,7 +214,8 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
                         }
                     }
                     _ = exit.changed() => {
-                    info!("receive exit signal, exit.");
+                    let name=self.component_name();
+                    info!("{:?},receive exit signal, exit.",name);
                     break;
                  }
 

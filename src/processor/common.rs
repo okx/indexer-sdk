@@ -1,7 +1,7 @@
 use crate::client::event::ClientEvent;
 use crate::configuration::base::IndexerConfiguration;
 use crate::dispatcher::event::DispatchEvent;
-use crate::error::IndexerResult;
+use crate::error::{IndexerError, IndexerResult};
 use crate::event::{AddressType, BalanceType, IndexerEvent, TxIdType};
 use crate::processor::node::TxNode;
 use crate::storage::prefix::DeltaStatus;
@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::watch;
 use wg::AsyncWaitGroup;
 
 #[derive(Clone)]
@@ -40,6 +41,7 @@ pub struct IndexerProcessorImpl<T: StorageProcessor> {
     current_chain_latest_height: Option<(u32, i64)>,
 
     analyses: HashMap<TxIdType, TxNode>,
+    exit: Option<watch::Receiver<()>>,
 }
 
 unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
@@ -73,6 +75,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             current_chain_latest_height: None,
             grap_rx,
             analyses: Default::default(),
+            exit: None,
         }
     }
 }
@@ -83,9 +86,11 @@ impl<T: StorageProcessor> HookComponent<DispatchEvent> for IndexerProcessorImpl<
         &mut self,
         sender: Sender<DispatchEvent>,
         rx: Receiver<DispatchEvent>,
+        exit: watch::Receiver<()>,
     ) -> IndexerResult<()> {
+        self.exit = Some(exit.clone());
         self.wg.wait().await;
-        self.wait_catchup(rx.clone()).await?;
+        self.wait_catchup(rx.clone(), exit.clone()).await?;
         self.restore_from_mempool(sender).await?;
 
         Ok(())
@@ -153,10 +158,21 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         Ok(())
     }
 
-    async fn wait_catchup(&mut self, rx: Receiver<DispatchEvent>) -> IndexerResult<()> {
+    async fn wait_catchup(
+        &mut self,
+        rx: Receiver<DispatchEvent>,
+        mut exit: watch::Receiver<()>,
+    ) -> IndexerResult<()> {
         let grap_tx = self.client_tx.clone();
         let grap_rx = rx.clone();
         loop {
+            let has_changed = exit
+                .has_changed()
+                .map_err(|e| IndexerError::MsgError(e.to_string()))?;
+            if has_changed {
+                info!("catch up receive exit signal, exit.");
+                break;
+            }
             let latest_block = self.btc_client.get_block_count();
             if let Err(e) = latest_block {
                 error!("get latest block error:{}", e);
@@ -170,32 +186,40 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             }
 
             loop {
-                let rx = grap_rx.recv().await;
-                if let Err(e) = rx {
-                    error!("grap rx error:{}", e);
-                    continue;
-                }
-                let event = rx.unwrap();
-                let event = event.get_indexer_event();
-                if event.is_none() {
-                    continue;
-                }
-                let event = event.unwrap();
-                if let IndexerEvent::ReportHeight(h) = event {
-                    info!(
-                        "indexer latest height:{},chain latest height:{}",
-                        h, net_latest_block
-                    );
-                    if *h as u64 >= net_latest_block {
-                        info!("indexer catch up,waitsync done!");
-                        self.current_indexer_height = Some(*h);
-                        return Ok(());
-                    }
-                    break;
+                tokio::select! {
+                    _ = exit.changed() => {
+                        info!("catch up receive exit signal, exit.");
+                        break;
+                        }
+                    rx=grap_rx.recv()=>{
+                            if let Err(e) = rx {
+                                error!("grap rx error:{}", e);
+                                return Err(IndexerError::MsgError(e.to_string()));
+                            }
+                            let event = rx.unwrap();
+                            let event = event.get_indexer_event();
+                            if event.is_none() {
+                                continue;
+                            }
+                            let event = event.unwrap();
+                            if let IndexerEvent::ReportHeight(h) = event {
+                                info!(
+                                    "indexer latest height:{},chain latest height:{}",
+                                    h, net_latest_block
+                                );
+                                if *h as u64 >= net_latest_block {
+                                    info!("indexer catch up,waitsync done!");
+                                    self.current_indexer_height = Some(*h);
+                                    return Ok(());
+                                }
+                                break;
+                            }
+                        }
                 }
             }
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
+        Ok(())
     }
     async fn do_handle_event(&mut self, event: &IndexerEvent) -> IndexerResult<()> {
         info!("do_handle_event,event:{:?}", event);
@@ -392,7 +416,8 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     }
     async fn restart(&mut self) -> IndexerResult<()> {
         let h = self.current_indexer_height.unwrap();
-        self.wait_catchup(self.grap_rx.clone()).await?;
+        self.wait_catchup(self.grap_rx.clone(), self.exit.clone().unwrap())
+            .await?;
         self.clean(h).await?;
         let rx = self.grap_rx.clone();
         // maybe we need to flush the grap_tx?

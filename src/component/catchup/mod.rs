@@ -11,6 +11,7 @@ use log::info;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::watch;
 use wg::AsyncWaitGroup;
 
 #[derive(Clone)]
@@ -43,6 +44,7 @@ impl HookComponent<DispatchEvent> for CacheUpComponent {
         &mut self,
         _: Sender<DispatchEvent>,
         _: Receiver<DispatchEvent>,
+        _: watch::Receiver<()>,
     ) -> IndexerResult<()> {
         let info = self.btc_client.get_blockchain_info()?;
         self.current_block_info = Some(BlockWrapper {

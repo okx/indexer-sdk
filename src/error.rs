@@ -16,6 +16,9 @@ pub enum IndexerError {
 
     #[error("level db error,msg:{0}")]
     RustLevelDBError(String),
+
+    #[error("error,msg:{0}")]
+    MsgError(String),
 }
 
 impl From<Status> for IndexerError {

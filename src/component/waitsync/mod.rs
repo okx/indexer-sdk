@@ -10,6 +10,7 @@ use bitcoincore_rpc::RpcApi;
 use log::{error, info};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::watch;
 use wg::{AsyncWaitGroup, WaitGroup};
 
 #[derive(Clone)]
@@ -63,6 +64,7 @@ impl HookComponent<DispatchEvent> for WaitIndexerCatchupComponent {
         &mut self,
         _: Sender<DispatchEvent>,
         rx: Receiver<DispatchEvent>,
+        _: watch::Receiver<()>,
     ) -> IndexerResult<()> {
         info!("wait indexer catch up");
         let grap_rx = rx.clone();
