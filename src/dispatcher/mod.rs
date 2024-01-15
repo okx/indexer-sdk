@@ -70,11 +70,6 @@ impl<E: Event + Clone> Dispatcher<E> {
                                     component.push_event(&event).await.unwrap();
                                 }
                             }
-                              // for component in self.components.iter_mut() {
-                        //     if component.interest(&event) {
-                        //         component.handle_event(&event).await?;
-                        //     }
-                        // }
                         }
                         Err(e) => {
                             warn!("recv error:{:?}", e)

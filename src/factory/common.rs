@@ -122,7 +122,6 @@ pub async fn async_create_and_start_processor(
 
     dispatcher.init(origin_cfg.clone()).await.unwrap();
     let ret = dispatcher.start(origin_exit.clone()).await.unwrap();
-
     let inner_client = CommonClient::new(notify_rx.clone(), tx.clone());
     (
         DirectClient::new(rt.clone(), client.clone(), processor.clone(), inner_client),
