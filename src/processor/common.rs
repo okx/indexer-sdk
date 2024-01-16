@@ -234,7 +234,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 self.do_handle_update_delta(data).await?;
             }
             IndexerEvent::TxConfirmed(tx_id) => {
-                self.do_handle_tx_confirmed(tx_id, DeltaStatus::Confirmed)
+                self.do_handle_tx_confirmed(tx_id, DeltaStatus::Confirmed, true)
                     .await?;
             }
             IndexerEvent::TxFromRestoreByTxId(tx_id) => {
@@ -380,10 +380,18 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         &mut self,
         tx_id: &TxIdType,
         _: DeltaStatus,
+        push: bool,
     ) -> IndexerResult<()> {
         info!("do_handle_tx_confirmed,tx_id:{:?}", tx_id);
         self.storage.remove_tx_traces(vec![tx_id.clone()]).await?;
         self.analyses.remove(tx_id);
+        if push {
+            self.tx
+                .send(ClientEvent::TxConfirmed(tx_id.clone()))
+                .await
+                .unwrap();
+        }
+
         Ok(())
     }
     async fn do_handle_restore_tx_by_tx_id(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
@@ -396,7 +404,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         Ok(())
     }
     async fn do_handle_tx_removed(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
-        self.do_handle_tx_confirmed(tx_id, DeltaStatus::InActive)
+        self.do_handle_tx_confirmed(tx_id, DeltaStatus::InActive, false)
             .await?;
         self.tx
             .send(ClientEvent::TxDroped(tx_id.clone()))
