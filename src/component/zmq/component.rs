@@ -8,7 +8,7 @@ use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
 use bitcoincore_rpc::bitcoin::hashes::Hash;
 use bitcoincore_rpc::bitcoin::{Block, BlockHash, Transaction};
 use bitcoincore_rpc::RpcApi;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use may::go;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -166,7 +166,7 @@ impl ZeroMQNode {
             let block_hash = hex::encode(&data);
             let sequence_number =
                 u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
-            info!(
+            debug!(
                 "receive new block hash:{},sequence:{}",
                 block_hash, sequence_number
             );
@@ -210,7 +210,7 @@ impl ZeroMQNode {
             let tx_hash = hex::encode(&body.to_vec());
             let sequence_number =
                 u32::from_le_bytes(sequence.to_vec().as_slice().try_into().unwrap());
-            info!(
+            debug!(
                 "receive new tx hash:{},sequence:{}",
                 tx_hash, sequence_number
             );
@@ -234,7 +234,7 @@ impl ZeroMQNode {
         } else if topic == "sequence" {
             let hash = hex::encode(&body[..32]);
             let label = body[32] as char;
-            info!(
+            debug!(
                 "receive sequence topic:{:?},tx_hash:{},label:{}",
                 topic, hash, label
             );

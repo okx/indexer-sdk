@@ -3,7 +3,7 @@ pub mod event;
 use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
 use crate::{Event, HookComponent};
-use log::{info, warn};
+use log::{debug, info, warn};
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
@@ -62,7 +62,7 @@ impl<E: Event + Clone> Dispatcher<E> {
                     break;
                 }
                 event = self.rx.recv() => {
-                    info!("recv event:{:?}", &event);
+                    debug!("recv event:{:?}", &event);
                     match event{
                         Ok(event) => {
                             for component in self.components.iter_mut() {
