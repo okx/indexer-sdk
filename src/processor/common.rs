@@ -13,7 +13,7 @@ use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
 use bitcoincore_rpc::bitcoin::{Transaction, Txid};
 use bitcoincore_rpc::RpcApi;
 use chrono::Local;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -268,7 +268,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                         info!("tx_id:{:?} is seen and  has been executed,skip", tx_id);
                         return Ok(());
                     } else {
-                        info!(
+                        debug!(
                             "tx_id:{:?} from restore  is seen but  has not been executed,start to dispatch",
                             tx_id
                         );
@@ -278,7 +278,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                     return Ok(());
                 }
             } else {
-                info!("tx_id:{:?} has not been executed,start to dispatch", tx_id);
+                debug!("tx_id:{:?} has not been executed,start to dispatch", tx_id);
                 self.analyse_transaction(&tx);
             }
             // let latest_chain_height = self.get_latest_chain_height()?;

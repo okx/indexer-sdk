@@ -9,7 +9,7 @@ use crate::types::delta::TransactionDelta;
 use crate::types::response::AllBalanceResponse;
 use bitcoincore_rpc::bitcoin::Transaction;
 use chrono::Local;
-use log::{error, info};
+use log::{debug, error, info};
 use rusty_leveldb::WriteBatch;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -83,12 +83,12 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
     ) -> IndexerResult<()> {
         let delta = self.get_transaction_delta_by_tx_id(tx_id)?;
         if delta.is_none() {
-            info!("tx_id,delta:{:?} not found", tx_id);
+            debug!("tx_id,delta:{:?} not found", tx_id);
             return Ok(());
         }
         let (delta, index) = delta.unwrap();
         if delta.status != DeltaStatus::Default.to_u8() {
-            info!("tx_id,delta:{:?} is inactive,already consumed", tx_id);
+            debug!("tx_id,delta:{:?} is inactive,already consumed", tx_id);
             return Ok(());
         }
 
@@ -112,7 +112,7 @@ impl<T: DB + Send + Sync + Clone> StorageProcessor for KVStorageProcessor<T> {
         let ts = dt.timestamp();
         let mut data = ts.to_le_bytes().to_vec();
         data.extend_from_slice(SeenStatus::UnExecuted.to_u8().to_le_bytes().as_slice());
-        info!("tx_id:{:?} is not seen,store it", tx_id);
+        debug!("tx_id:{:?} is not seen,store it", tx_id);
         self.db
             .set(Some(tx_id.clone()), key.as_slice(), data.as_slice())?;
         return Ok(SeenStatusResponse {
@@ -261,7 +261,7 @@ impl<T: DB + Send + Sync + Clone> KVStorageProcessor<T> {
         let key = KeyPrefix::build_transaction_index_map_key(tx_id);
         let index = self.db.get(key.as_slice())?;
         if index.is_none() {
-            info!("tx_id:{:?} not found", tx_id);
+            debug!("tx_id:{:?} not found", tx_id);
             return Ok(None);
         }
         let index = index.unwrap();
