@@ -396,7 +396,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     }
     async fn do_handle_restore_tx_by_tx_id(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
         let txid: Txid = tx_id.clone().into();
-        info!("do_handle_force_tx_by_tx_id,txid:{:?}", txid);
+        debug!("do_handle_force_tx_by_tx_id,txid:{:?}", txid);
         let transaction = self.btc_client.get_raw_transaction(&txid, None)?;
         let data = serialize(&transaction);
         self.do_handle_new_tx_coming(&data, true).await?;

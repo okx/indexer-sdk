@@ -91,7 +91,7 @@ impl ZeroMQNode {
             client: Arc::new(client),
         }
     }
-    async fn start(&self, _: Receiver<()>, wg: AsyncWaitGroup) -> JoinHandle<()> {
+    async fn start(&self, mut exit: Receiver<()>, wg: AsyncWaitGroup) -> JoinHandle<()> {
         let node = self.clone();
         let flag = self.flag.clone();
         tokio::task::spawn(async move {
@@ -120,6 +120,10 @@ impl ZeroMQNode {
                                     break;
                                 }
                                 info!("processor is not synced yet,wait 3s");
+                                if exit.has_changed().unwrap(){
+                                info!("zmq receive exit signal, exit.");
+                                    return;
+                                }
                                 tokio::time::sleep(Duration::from_secs(3)).await
                             }
 
@@ -128,6 +132,10 @@ impl ZeroMQNode {
                                 error!("handle message failed:{:?}",e);
                                 continue
                         }
+                        }
+                        _=exit.changed()=>{
+                            info!("zmq receive exit signal, exit.");
+                            break;
                         }
                 }
             }
