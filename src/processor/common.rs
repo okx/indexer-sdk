@@ -146,7 +146,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         };
 
         for (tx_id, _) in txs {
-            info!("get tx from mempool or db:{:?}", &tx_id);
+            debug!("get tx from mempool or db:{:?}", &tx_id);
             tx.send(DispatchEvent::IndexerEvent(
                 IndexerEvent::TxFromRestoreByTxId(tx_id),
             ))
