@@ -315,11 +315,11 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             let mut prev_node = self.analyses.get_mut(&prev_tx_id);
             if prev_node.is_none() {
                 let mut tx_node = TxNode::new(prev_tx_id.clone());
-                tx_node.nexts.insert(current_node.clone());
+                tx_node.children.insert(current_node.clone());
                 self.analyses.insert(prev_tx_id, tx_node);
             } else {
                 let mut prev_node = prev_node.unwrap();
-                prev_node.nexts.insert(current_node.clone());
+                prev_node.children.insert(current_node.clone());
             }
         }
     }
@@ -333,10 +333,10 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 break;
             }
             let node = node.unwrap();
-            if node.nexts.is_empty() {
+            if node.children.is_empty() {
                 break;
             }
-            let nexts = node.nexts.clone();
+            let nexts = node.children.clone();
             for next in nexts {
                 ret.extend(self.get_current_child_by_tx_id(&next.current_hash));
             }

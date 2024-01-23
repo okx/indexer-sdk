@@ -5,15 +5,15 @@ use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TxNode {
-    pub(crate) current_hash: TxIdType,
-    pub(crate) nexts: HashSet<TxNode>,
+    pub current_hash: TxIdType,
+    pub children: HashSet<TxNode>,
 }
 
 impl TxNode {
     pub fn new(current_hash: TxIdType) -> Self {
         Self {
             current_hash,
-            nexts: Default::default(),
+            children: Default::default(),
         }
     }
 }
@@ -25,5 +25,3 @@ impl Hash for TxNode {
         data.hash(state);
     }
 }
-#[test]
-pub fn test_asd() {}
