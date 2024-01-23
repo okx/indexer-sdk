@@ -222,7 +222,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         Ok(())
     }
     async fn do_handle_event(&mut self, event: &IndexerEvent) -> IndexerResult<()> {
-        info!("do_handle_event,event:{:?}", event);
+        debug!("do_handle_event,event:{:?}", event);
         match event {
             IndexerEvent::NewTxComing(data, _) => {
                 self.do_handle_new_tx_coming(data, false).await?;
@@ -382,7 +382,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         _: DeltaStatus,
         push: bool,
     ) -> IndexerResult<()> {
-        info!("do_handle_tx_confirmed,tx_id:{:?}", tx_id);
+        debug!("do_handle_tx_confirmed,tx_id:{:?}", tx_id);
         self.storage.remove_tx_traces(vec![tx_id.clone()]).await?;
         self.analyses.remove(tx_id);
         if push {
