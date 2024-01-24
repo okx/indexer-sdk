@@ -121,34 +121,11 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     async fn do_handle_sync_mempool(&mut self, tx: Sender<DispatchEvent>) -> IndexerResult<()> {
         let all_unconsumed = self.storage.get_all_un_consumed_txs().await?;
         info!("all unconsumed txs:{:?}", all_unconsumed);
-        let txs = {
-            // sort by timestamp to execute tx in order
-            info!("start to load mempool");
-            let txs = self.btc_client.get_raw_mempool_verbose()?;
-            info!("txs in mempool,len{:?}", txs.len());
-            let mut append = vec![];
-            for (k, ts) in &all_unconsumed {
-                let tx_id: Txid = k.clone().into();
-                if !txs.contains_key(&tx_id) {
-                    append.push((k.clone(), *ts));
-                }
-            }
-            let mut sorted_pairs: Vec<_> = txs
-                .into_iter()
-                .map(|(tx_id, info)| {
-                    let tx_id: TxIdType = tx_id.into();
-                    (tx_id, info.time as i64)
-                })
-                .collect();
-            sorted_pairs.extend_from_slice(append.as_slice());
-            sorted_pairs.sort_by(|a, b| a.1.cmp(&b.1));
-            sorted_pairs
-        };
-
-        for (tx_id, _) in txs {
+        let txs = self.btc_client.get_raw_mempool()?;
+        for tx_id in txs {
             debug!("get tx from mempool or db:{:?}", &tx_id);
             tx.send(DispatchEvent::IndexerEvent(
-                IndexerEvent::TxFromRestoreByTxId(tx_id),
+                IndexerEvent::TxFromRestoreByTxId(tx_id.into()),
             ))
             .await
             .unwrap();

@@ -1,7 +1,7 @@
 use crate::client::event::ClientEvent;
 use crate::client::Client;
 use crate::dispatcher::event::DispatchEvent;
-use crate::error::IndexerResult;
+use crate::error::{IndexerError, IndexerResult};
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType};
 use crate::types::delta::TransactionDelta;
 use log::debug;
@@ -106,7 +106,7 @@ impl CommonClient {
         let res = self.rx.recv_blocking();
         return match res {
             Ok(ret) => Ok(ret),
-            Err(_) => panic!("recv error"),
+            Err(_) => IndexerError::MsgError("recv error".to_string()),
         };
     }
 
