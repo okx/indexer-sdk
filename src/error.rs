@@ -1,3 +1,4 @@
+use crate::dispatcher::event::DispatchEvent;
 use rusty_leveldb::Status;
 pub use thiserror::Error;
 
@@ -19,6 +20,9 @@ pub enum IndexerError {
 
     #[error("error,msg:{0}")]
     MsgError(String),
+
+    #[error("channel error,msg:{0}")]
+    ChannelError(#[from] async_channel::SendError<DispatchEvent>),
 }
 
 impl From<Status> for IndexerError {

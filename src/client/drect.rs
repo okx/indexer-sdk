@@ -112,8 +112,7 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
             .tx
             .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::ReportHeight(
                 height,
-            )))
-            .unwrap();
+            )))?;
         Ok(())
     }
 
@@ -122,16 +121,14 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
             .tx
             .send_blocking(DispatchEvent::IndexerEvent(IndexerEvent::ReportReorg(
                 org_number,
-            )))
-            .unwrap();
+            )))?;
         Ok(())
     }
 
     fn push_event(&self, event: IndexerEvent) -> IndexerResult<()> {
         self.base
             .tx
-            .send_blocking(DispatchEvent::IndexerEvent(event))
-            .unwrap();
+            .send_blocking(DispatchEvent::IndexerEvent(event))?;
         Ok(())
     }
 

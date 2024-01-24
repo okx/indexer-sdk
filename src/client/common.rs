@@ -106,7 +106,7 @@ impl CommonClient {
         let res = self.rx.recv_blocking();
         return match res {
             Ok(ret) => Ok(ret),
-            Err(_) => IndexerError::MsgError("recv error".to_string()),
+            Err(_) => Err(IndexerError::MsgError("recv error".to_string())),
         };
     }
 
