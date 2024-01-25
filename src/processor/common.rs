@@ -127,8 +127,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             tx.send(DispatchEvent::IndexerEvent(
                 IndexerEvent::TxFromRestoreByTxId(tx_id.into()),
             ))
-            .await
-            .unwrap();
+            .await?;
         }
         self.flag.store(true, Ordering::Relaxed);
 
@@ -272,7 +271,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             // self.storage
             //     .save_height_tx(latest_indexer_height, tx_id.clone())
             //     .await?;
-            self.tx.send(ClientEvent::Transaction(tx)).await.unwrap();
+            self.tx.send(ClientEvent::Transaction(tx)).await?;
         } else {
             error!("parse zmq data error,data is empty, data:{:?}", data);
         }
@@ -365,8 +364,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         if push {
             self.tx
                 .send(ClientEvent::TxConfirmed(tx_id.clone()))
-                .await
-                .unwrap();
+                .await?;
         }
 
         Ok(())
@@ -383,10 +381,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
     async fn do_handle_tx_removed(&mut self, tx_id: &TxIdType) -> IndexerResult<()> {
         self.do_handle_tx_confirmed(tx_id, DeltaStatus::InActive, false)
             .await?;
-        self.tx
-            .send(ClientEvent::TxDroped(tx_id.clone()))
-            .await
-            .unwrap();
+        self.tx.send(ClientEvent::TxDroped(tx_id.clone())).await?;
         Ok(())
     }
     async fn do_handle_report_reorg(&mut self, org: u32) -> IndexerResult<()> {
