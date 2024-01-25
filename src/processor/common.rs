@@ -147,6 +147,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 .has_changed()
                 .map_err(|e| IndexerError::MsgError(e.to_string()))?;
             if has_changed {
+                self.tx.close();
                 info!("catch up receive exit signal, exit.");
                 break;
             }
@@ -165,6 +166,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
             loop {
                 tokio::select! {
                     _ = exit.changed() => {
+                        grap_tx.close();
                         info!("catch up receive exit signal, exit.");
                         break;
                         }

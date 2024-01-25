@@ -184,6 +184,7 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
                          }
                        },
                      _ = exit.changed() => {
+                        self.event_tx().close();
                     let name=self.component_name();
                     info!("{:?},receive exit signal, exit.",name);
                     break;
@@ -214,6 +215,7 @@ impl<T: HookComponent<E> + Clone, E: Clone + Event> ComponentTemplate<T, E> {
                         }
                     }
                     _ = exit.changed() => {
+                        self.event_tx().close();
                     let name=self.component_name();
                     info!("{:?},receive exit signal, exit.",name);
                     break;

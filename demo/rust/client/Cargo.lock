@@ -692,7 +692,6 @@ dependencies = [
  "async-trait",
  "auto_impl",
  "bigdecimal",
- "bitcoincore-rpc",
  "chrono",
  "crossbeam",
  "downcast-rs",
@@ -702,6 +701,7 @@ dependencies = [
  "log4rs",
  "may",
  "once_cell",
+ "ord-bitcoincore-rpc",
  "primitive-types",
  "rustc-serialize",
  "rusty-leveldb",
@@ -996,6 +996,32 @@ name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
+
+[[package]]
+name = "ord-bitcoincore-rpc"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d57a4297d466506cde088e020b33819f9a496d50272b14d7890e6fde5595a3e"
+dependencies = [
+ "bitcoin-private",
+ "jsonrpc",
+ "log",
+ "ord-bitcoincore-rpc-json",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ord-bitcoincore-rpc-json"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5bb35088f918c775bc27fa79e372d034892b216fb7900aeedd6e06654879ad33"
+dependencies = [
+ "bitcoin",
+ "bitcoin-private",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "ordered-float"
