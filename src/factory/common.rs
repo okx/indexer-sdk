@@ -131,8 +131,8 @@ pub(crate) fn create_client_from_configuration(
 
 pub fn sync_create_and_start_processor(
     origin_cfg: IndexerConfiguration,
-    rt: Arc<Runtime>,
 ) -> DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>> {
+    let rt = Arc::new(Runtime::new().unwrap());
     let (tx, rx) = watch::channel(());
     let rt2 = rt.clone();
     let ret = rt2.block_on(async_create_and_start_processor(
