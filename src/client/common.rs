@@ -5,6 +5,7 @@ use crate::error::{IndexerError, IndexerResult};
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType};
 use crate::types::delta::TransactionDelta;
 use log::debug;
+use rusty_leveldb::StatusCode::OK;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -23,7 +24,7 @@ impl Default for CommonClient {
 
 #[async_trait::async_trait]
 impl Client for CommonClient {
-    async fn get_event(&self) -> IndexerResult<Option<ClientEvent>> {
+    async fn try_get_event(&self) -> IndexerResult<Option<ClientEvent>> {
         self.do_get_data()
     }
 
@@ -62,6 +63,11 @@ impl Client for CommonClient {
             )))
             .unwrap();
         Ok(())
+    }
+
+    async fn block_get_event(&self) -> IndexerResult<ClientEvent> {
+        let res = self.rx.recv().await?;
+        Ok(res)
     }
 }
 

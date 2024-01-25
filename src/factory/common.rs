@@ -144,9 +144,16 @@ pub fn sync_create_and_start_processor(
     origin_cfg: IndexerConfiguration,
 ) -> DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>> {
     let (tx, rx) = watch::channel(());
-    let rt = Runtime::new().unwrap();
-    let ret = rt.block_on(async_create_and_start_processor(rx, origin_cfg));
+    let ret = thread::spawn(move || {
+        let rt = Runtime::new().unwrap();
+        let ret = rt.block_on(async_create_and_start_processor(rx, origin_cfg));
+        ret
+    })
+    .join()
+    .unwrap();
+
     thread::spawn(move || {
+        let rt = Runtime::new().unwrap();
         rt.block_on(async {
             let handlers = ret.1;
             wait_exit_signal().await.unwrap();
