@@ -104,6 +104,7 @@ impl<T: StorageProcessor + Clone> SyncClient for DirectClient<T> {
     }
 
     fn block_get_event(&self) -> IndexerResult<ClientEvent> {
+        log::info!("block_get_event....");
         self.base.block_get_data()
     }
 

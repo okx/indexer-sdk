@@ -104,6 +104,7 @@ impl CommonClient {
     }
     pub(crate) fn block_get_data(&self) -> IndexerResult<ClientEvent> {
         let res = self.rx.recv_blocking();
+        log::info!("block_get_data...");
         return match res {
             Ok(ret) => Ok(ret),
             Err(_) => Err(IndexerError::MsgError("recv error".to_string())),
