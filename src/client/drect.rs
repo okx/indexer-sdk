@@ -9,7 +9,7 @@ use crate::types::delta::TransactionDelta;
 use crate::types::response::AllBalanceResponse;
 use async_channel::Receiver;
 use bitcoincore_rpc::bitcoin::{Transaction, Txid};
-use bitcoincore_rpc::{Error, RpcApi};
+use bitcoincore_rpc::RpcApi;
 use std::sync::Arc;
 use tokio::runtime;
 use tokio::runtime::Runtime;

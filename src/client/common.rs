@@ -5,7 +5,6 @@ use crate::error::{IndexerError, IndexerResult};
 use crate::event::{AddressType, BalanceType, IndexerEvent, TokenType};
 use crate::types::delta::TransactionDelta;
 use log::debug;
-use rusty_leveldb::StatusCode::OK;
 
 #[repr(C)]
 #[derive(Clone)]

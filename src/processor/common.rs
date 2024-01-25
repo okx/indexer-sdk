@@ -13,7 +13,7 @@ use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
 use bitcoincore_rpc::bitcoin::{Transaction, Txid};
 use bitcoincore_rpc::RpcApi;
 use chrono::Local;
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -288,13 +288,13 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         // build by input
         for input in &tx.input {
             let prev_tx_id: TxIdType = input.previous_output.txid.into();
-            let mut prev_node = self.analyses.get_mut(&prev_tx_id);
+            let prev_node = self.analyses.get_mut(&prev_tx_id);
             if prev_node.is_none() {
                 let mut tx_node = TxNode::new(prev_tx_id.clone());
                 tx_node.children.insert(current_node.clone());
                 self.analyses.insert(prev_tx_id, tx_node);
             } else {
-                let mut prev_node = prev_node.unwrap();
+                let prev_node = prev_node.unwrap();
                 prev_node.children.insert(current_node.clone());
             }
         }

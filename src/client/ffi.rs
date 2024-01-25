@@ -1,11 +1,7 @@
 use crate::client::drect::DirectClient;
 use crate::client::event::RequestEvent;
 use crate::client::SyncClient;
-use crate::configuration::base::{
-    IndexerConfiguration, LogConfiguration, NetConfiguration, ZMQConfiguration,
-};
 use crate::event::IndexerEvent;
-use crate::factory::common::sync_create_and_start_processor;
 use crate::storage::db::memory::MemoryDB;
 use crate::storage::db::thread_safe::ThreadSafeDB;
 use crate::storage::kv::KVStorageProcessor;
@@ -40,53 +36,53 @@ pub struct ByteArray {
     length: usize,
 }
 
-#[no_mangle]
-pub extern "C" fn start_processor() {
-    let zmq_url = std::env::var("ZMQ_URL").unwrap();
-    let zmq_topics = std::env::var("ZMQ_TOPIC").unwrap();
-    let db_path = std::env::var("DB_PATH")
-        .map(|v| v.to_string())
-        .unwrap_or("./indexer_db".to_string());
-    let cache_block = std::env::var("CACHE_BLOCK")
-        .unwrap_or("10".to_string())
-        .parse::<u32>()
-        .unwrap_or(10);
-    let btc_rpc_url = std::env::var("BTC_RPC_URL").unwrap();
-    let btc_rpc_username = std::env::var("BTC_RPC_USERNAME").unwrap();
-    let btc_rpc_password = std::env::var("BTC_RPC_PASSWORD").unwrap();
-
-    let log_level = std::env::var("LOG_LEVEL").unwrap_or("debug".to_string());
-    let log_level = if log_level == "debug" {
-        log::LevelFilter::Debug
-    } else if log_level == "info" {
-        log::LevelFilter::Info
-    } else if log_level == "warn" {
-        log::LevelFilter::Warn
-    } else if log_level == "error" {
-        log::LevelFilter::Error
-    } else {
-        log::LevelFilter::Info
-    };
-
-    info!("zmq_url: {}, zmq_topics: {}", zmq_url, zmq_topics);
-    let zmq_topics: Vec<String> = zmq_topics.split(",").map(|v| v.to_string()).collect();
-    let ret = sync_create_and_start_processor(IndexerConfiguration {
-        mq: ZMQConfiguration {
-            zmq_url,
-            zmq_topic: zmq_topics,
-        },
-        net: NetConfiguration {
-            url: btc_rpc_url,
-            username: btc_rpc_username,
-            password: btc_rpc_password,
-        },
-        db_path,
-        save_block_cache_count: cache_block,
-        log_configuration: LogConfiguration { log_level },
-    });
-    let old = get_option_notifier();
-    *old = Some(ret);
-}
+// #[no_mangle]
+// pub extern "C" fn start_processor() {
+//     let zmq_url = std::env::var("ZMQ_URL").unwrap();
+//     let zmq_topics = std::env::var("ZMQ_TOPIC").unwrap();
+//     let db_path = std::env::var("DB_PATH")
+//         .map(|v| v.to_string())
+//         .unwrap_or("./indexer_db".to_string());
+//     let cache_block = std::env::var("CACHE_BLOCK")
+//         .unwrap_or("10".to_string())
+//         .parse::<u32>()
+//         .unwrap_or(10);
+//     let btc_rpc_url = std::env::var("BTC_RPC_URL").unwrap();
+//     let btc_rpc_username = std::env::var("BTC_RPC_USERNAME").unwrap();
+//     let btc_rpc_password = std::env::var("BTC_RPC_PASSWORD").unwrap();
+//
+//     let log_level = std::env::var("LOG_LEVEL").unwrap_or("debug".to_string());
+//     let log_level = if log_level == "debug" {
+//         log::LevelFilter::Debug
+//     } else if log_level == "info" {
+//         log::LevelFilter::Info
+//     } else if log_level == "warn" {
+//         log::LevelFilter::Warn
+//     } else if log_level == "error" {
+//         log::LevelFilter::Error
+//     } else {
+//         log::LevelFilter::Info
+//     };
+//
+//     info!("zmq_url: {}, zmq_topics: {}", zmq_url, zmq_topics);
+//     let zmq_topics: Vec<String> = zmq_topics.split(",").map(|v| v.to_string()).collect();
+//     let ret = sync_create_and_start_processor(IndexerConfiguration {
+//         mq: ZMQConfiguration {
+//             zmq_url,
+//             zmq_topic: zmq_topics,
+//         },
+//         net: NetConfiguration {
+//             url: btc_rpc_url,
+//             username: btc_rpc_username,
+//             password: btc_rpc_password,
+//         },
+//         db_path,
+//         save_block_cache_count: cache_block,
+//         log_configuration: LogConfiguration { log_level },
+//     });
+//     let old = get_option_notifier();
+//     *old = Some(ret);
+// }
 
 #[no_mangle]
 pub extern "C" fn get_event() -> ByteArray {

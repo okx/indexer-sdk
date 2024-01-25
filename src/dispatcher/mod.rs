@@ -4,6 +4,8 @@ use crate::configuration::base::IndexerConfiguration;
 use crate::error::IndexerResult;
 use crate::{Event, HookComponent};
 use log::{debug, info, warn};
+use std::sync::Arc;
+use tokio::runtime::Runtime;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
@@ -41,14 +43,15 @@ impl<E: Event + Clone> Dispatcher<E> {
 
     pub async fn start(
         &'static mut self,
+        rt: Arc<Runtime>,
         exit: watch::Receiver<()>,
     ) -> IndexerResult<Vec<JoinHandle<()>>> {
         let mut handles = vec![];
         for component in self.components.iter_mut() {
-            let handle = component.start(exit.clone()).await?;
+            let handle = component.start(rt.clone(), exit.clone()).await?;
             handles.extend(handle);
         }
-        handles.push(tokio::task::spawn(async {
+        handles.push(rt.spawn(async {
             self.do_start(exit).await;
         }));
         Ok(handles)
