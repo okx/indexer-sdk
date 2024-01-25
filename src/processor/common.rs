@@ -165,7 +165,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
                 tokio::select! {
                     _ = exit.changed() => {
                         info!("catch up receive exit signal, exit.");
-                        break;
+                        return Ok(());
                         }
                     rx=grap_rx.recv()=>{
                             if let Err(e) = rx {
