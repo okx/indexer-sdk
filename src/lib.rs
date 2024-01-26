@@ -6,17 +6,20 @@ use log::{info, warn};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::runtime::Runtime;
 use tokio::sync::watch;
-use tokio::task;
 use tokio::task::JoinHandle;
-
+#[allow(dead_code)]
 pub mod client;
+#[allow(dead_code)]
 pub mod component;
 pub mod configuration;
+#[allow(dead_code)]
 pub mod dispatcher;
 pub mod error;
 pub mod event;
 pub mod factory;
+#[allow(dead_code)]
 pub mod processor;
 pub mod storage;
 pub mod types;
@@ -46,7 +49,11 @@ pub trait Component<T: Event + Clone>: Send + Sync {
         Ok(())
     }
 
-    async fn start(&mut self, _: watch::Receiver<()>) -> IndexerResult<Vec<JoinHandle<()>>> {
+    async fn start(
+        &mut self,
+        _: Arc<Runtime>,
+        _: watch::Receiver<()>,
+    ) -> IndexerResult<Vec<JoinHandle<()>>> {
         Ok(vec![])
     }
 
@@ -66,6 +73,14 @@ pub struct ComponentTemplate<T: HookComponent<E> + Clone + 'static, E: Clone + E
     internal: T,
     rx: async_channel::Receiver<E>,
     tx: Sender<E>,
+}
+
+impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> Drop for ComponentTemplate<T, E> {
+    fn drop(&mut self) {
+        info!("component {} drop", self.component_name());
+        self.tx.close();
+        self.rx.close();
+    }
 }
 
 impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> ComponentTemplate<T, E> {
@@ -92,10 +107,14 @@ impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> Component<E>
         self.internal.init(cfg).await
     }
 
-    async fn start(&mut self, exit: watch::Receiver<()>) -> IndexerResult<Vec<JoinHandle<()>>> {
-        let mut ret = self.internal.start(exit.clone()).await?;
+    async fn start(
+        &mut self,
+        rt: Arc<Runtime>,
+        exit: watch::Receiver<()>,
+    ) -> IndexerResult<Vec<JoinHandle<()>>> {
+        let mut ret = self.internal.start(rt.clone(), exit.clone()).await?;
         let mut node = self.clone();
-        let task = task::spawn(async move {
+        let task = rt.spawn(async move {
             node.on_start(exit.clone()).await.unwrap();
         });
         ret.push(task);
@@ -117,7 +136,7 @@ pub trait HookComponent<E: Clone + Event>: Component<E> {
         &mut self,
         _: Sender<E>,
         _: Receiver<E>,
-        exit: watch::Receiver<()>,
+        _: watch::Receiver<()>,
     ) -> IndexerResult<()> {
         Ok(())
     }

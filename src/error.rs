@@ -27,6 +27,9 @@ pub enum IndexerError {
 
     #[error("channel error,msg:{0}")]
     ChannelClientError(#[from] async_channel::SendError<ClientEvent>),
+
+    #[error("recv error,msg:{0}")]
+    RecvError(#[from] async_channel::RecvError),
 }
 
 impl From<Status> for IndexerError {

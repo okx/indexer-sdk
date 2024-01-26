@@ -13,7 +13,7 @@ use bitcoincore_rpc::bitcoin::consensus::{deserialize, serialize};
 use bitcoincore_rpc::bitcoin::{Transaction, Txid};
 use bitcoincore_rpc::RpcApi;
 use chrono::Local;
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -42,6 +42,14 @@ pub struct IndexerProcessorImpl<T: StorageProcessor> {
 
     analyses: HashMap<TxIdType, TxNode>,
     exit: Option<watch::Receiver<()>>,
+}
+impl<T: StorageProcessor> Drop for IndexerProcessorImpl<T> {
+    fn drop(&mut self) {
+        info!("drop indexer processor");
+        self.tx.close();
+        self.grap_tx.close();
+        self.grap_rx.close();
+    }
 }
 
 unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
@@ -122,6 +130,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         let all_unconsumed = self.storage.get_all_un_consumed_txs().await?;
         info!("all unconsumed txs:{:?}", all_unconsumed);
         let txs = self.btc_client.get_raw_mempool()?;
+        info!("mempool txs len:{:?}", txs.len());
         for tx_id in txs {
             debug!("get tx from mempool or db:{:?}", &tx_id);
             tx.send(DispatchEvent::IndexerEvent(
@@ -288,13 +297,13 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         // build by input
         for input in &tx.input {
             let prev_tx_id: TxIdType = input.previous_output.txid.into();
-            let mut prev_node = self.analyses.get_mut(&prev_tx_id);
+            let prev_node = self.analyses.get_mut(&prev_tx_id);
             if prev_node.is_none() {
                 let mut tx_node = TxNode::new(prev_tx_id.clone());
                 tx_node.children.insert(current_node.clone());
                 self.analyses.insert(prev_tx_id, tx_node);
             } else {
-                let mut prev_node = prev_node.unwrap();
+                let prev_node = prev_node.unwrap();
                 prev_node.children.insert(current_node.clone());
             }
         }

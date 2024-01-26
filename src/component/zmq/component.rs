@@ -14,6 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use std::vec;
+use tokio::runtime::Runtime;
 use tokio::sync::watch::Receiver;
 use tokio::task::JoinHandle;
 use wg::AsyncWaitGroup;
@@ -38,10 +39,14 @@ impl Component<DispatchEvent> for ZeroMQComponent {
         Ok(())
     }
 
-    async fn start(&mut self, exit: Receiver<()>) -> IndexerResult<Vec<JoinHandle<()>>> {
+    async fn start(
+        &mut self,
+        rt: Arc<Runtime>,
+        exit: Receiver<()>,
+    ) -> IndexerResult<Vec<JoinHandle<()>>> {
         let mut ret = vec![];
         let node = ZeroMQNode::new(self.config.clone(), self.sender.clone(), self.flag.clone());
-        ret.push(node.start(exit.clone(), self.wg.clone()).await);
+        ret.push(node.start(rt.clone(), exit.clone(), self.wg.clone()).await);
         Ok(ret)
     }
 
@@ -91,10 +96,15 @@ impl ZeroMQNode {
             client: Arc::new(client),
         }
     }
-    async fn start(&self, mut exit: Receiver<()>, wg: AsyncWaitGroup) -> JoinHandle<()> {
+    async fn start(
+        &self,
+        rt: Arc<Runtime>,
+        mut exit: Receiver<()>,
+        wg: AsyncWaitGroup,
+    ) -> JoinHandle<()> {
         let node = self.clone();
         let flag = self.flag.clone();
-        tokio::task::spawn(async move {
+        rt.spawn(async move {
             let mut socket = zeromq::SubSocket::new();
             socket
                 .connect(node.config.mq.zmq_url.clone().as_str())
@@ -142,6 +152,7 @@ impl ZeroMQNode {
         })
     }
 
+    #[allow(unused_assignments)]
     async fn handle_message(&self, message: &ZmqMessage) -> IndexerResult<()> {
         let data = message.clone().into_vec();
         if data.is_empty() {

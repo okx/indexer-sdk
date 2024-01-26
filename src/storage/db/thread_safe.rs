@@ -2,7 +2,7 @@ use crate::error::IndexerResult;
 use crate::event::TxIdType;
 use crate::storage::db::DB;
 use rusty_leveldb::WriteBatch;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct ThreadSafeDB<T: DB + Clone> {

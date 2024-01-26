@@ -13,7 +13,6 @@ use bitcoincore_rpc::{Auth, Client};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::thread;
-use tokio::runtime;
 use tokio::runtime::Runtime;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -49,23 +48,11 @@ pub fn new_client_for_test(
 pub async fn async_create_and_start_processor(
     origin_exit: watch::Receiver<()>,
     origin_cfg: IndexerConfiguration,
+    rt: Arc<Runtime>,
 ) -> (
     DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>>,
     Vec<JoinHandle<()>>,
-    Arc<Runtime>,
 ) {
-    let rt = Arc::new(
-        runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap(),
-    );
-
-    // panic::set_hook(Box::new(|panic_info| {
-    //     println!("panic occurred: {:?}", panic_info);
-    //     error!("panic occurred: {:?}", panic_info);
-    //     exit(-1);
-    // }));
     let flag = Arc::new(AtomicBool::new(false));
     // let db = LevelDB::new(origin_cfg.db_path.as_str()).unwrap();
     let db = ThreadSafeDB::new(MemoryDB::default());
@@ -121,12 +108,14 @@ pub async fn async_create_and_start_processor(
     dispatcher.register_component(Box::new(zmq));
 
     dispatcher.init(origin_cfg.clone()).await.unwrap();
-    let ret = dispatcher.start(origin_exit.clone()).await.unwrap();
+    let ret = dispatcher
+        .start(rt.clone(), origin_exit.clone())
+        .await
+        .unwrap();
     let inner_client = CommonClient::new(notify_rx.clone(), tx.clone());
     (
         DirectClient::new(rt.clone(), client.clone(), processor.clone(), inner_client),
         ret,
-        rt.clone(),
     )
 }
 
@@ -143,9 +132,15 @@ pub(crate) fn create_client_from_configuration(
 pub fn sync_create_and_start_processor(
     origin_cfg: IndexerConfiguration,
 ) -> DirectClient<KVStorageProcessor<ThreadSafeDB<MemoryDB>>> {
+    let rt = Arc::new(Runtime::new().unwrap());
     let (tx, rx) = watch::channel(());
-    let rt = Runtime::new().unwrap();
-    let ret = rt.block_on(async_create_and_start_processor(rx, origin_cfg));
+    let rt2 = rt.clone();
+    let ret = rt2.block_on(async_create_and_start_processor(
+        rx,
+        origin_cfg,
+        rt2.clone(),
+    ));
+
     thread::spawn(move || {
         rt.block_on(async {
             let handlers = ret.1;

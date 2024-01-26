@@ -9,7 +9,7 @@ use crate::types::delta::TransactionDelta;
 use crate::types::response::AllBalanceResponse;
 use async_channel::Receiver;
 use bitcoincore_rpc::bitcoin::{Transaction, Txid};
-use bitcoincore_rpc::{Error, RpcApi};
+use bitcoincore_rpc::RpcApi;
 use std::sync::Arc;
 use tokio::runtime;
 use tokio::runtime::Runtime;
@@ -53,8 +53,8 @@ impl<T: StorageProcessor + Clone> DirectClient<T> {
 
 #[async_trait::async_trait]
 impl<T: StorageProcessor + Clone> Client for DirectClient<T> {
-    async fn get_event(&self) -> IndexerResult<Option<ClientEvent>> {
-        self.base.get_event().await
+    async fn try_get_event(&self) -> IndexerResult<Option<ClientEvent>> {
+        self.base.try_get_event().await
     }
 
     async fn push_event(&self, event: DispatchEvent) -> IndexerResult<()> {
@@ -81,6 +81,10 @@ impl<T: StorageProcessor + Clone> Client for DirectClient<T> {
     }
     async fn report_reorg(&self, number: u32) -> IndexerResult<()> {
         self.base.report_reorg(number).await
+    }
+
+    async fn block_get_event(&self) -> IndexerResult<ClientEvent> {
+        self.base.block_get_event().await
     }
 }
 

@@ -15,7 +15,10 @@ pub mod ffi;
 
 #[async_trait::async_trait]
 pub trait Client: Send + Sync {
-    async fn get_event(&self) -> IndexerResult<Option<ClientEvent>>;
+    async fn try_get_event(&self) -> IndexerResult<Option<ClientEvent>>;
+
+    async fn block_get_event(&self) -> IndexerResult<ClientEvent>;
+
     async fn report_height(&self, height: u32) -> IndexerResult<()>;
     async fn report_reorg(&self, number: u32) -> IndexerResult<()>;
     async fn push_event(&self, event: DispatchEvent) -> IndexerResult<()>;
