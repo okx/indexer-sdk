@@ -75,6 +75,14 @@ pub struct ComponentTemplate<T: HookComponent<E> + Clone + 'static, E: Clone + E
     tx: Sender<E>,
 }
 
+impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> Drop for ComponentTemplate<T, E> {
+    fn drop(&mut self) {
+        info!("component {} drop", self.component_name());
+        self.tx.close();
+        self.rx.close();
+    }
+}
+
 impl<T: HookComponent<E> + Clone + 'static, E: Clone + Event> ComponentTemplate<T, E> {
     pub fn event_tx(&self) -> Sender<E> {
         self.tx.clone()
