@@ -43,6 +43,14 @@ pub struct IndexerProcessorImpl<T: StorageProcessor> {
     analyses: HashMap<TxIdType, TxNode>,
     exit: Option<watch::Receiver<()>>,
 }
+impl<T: StorageProcessor> Drop for IndexerProcessorImpl<T> {
+    fn drop(&mut self) {
+        info!("drop indexer processor");
+        self.tx.close();
+        self.grap_tx.close();
+        self.grap_rx.close();
+    }
+}
 
 unsafe impl<T: StorageProcessor> Send for IndexerProcessorImpl<T> {}
 
