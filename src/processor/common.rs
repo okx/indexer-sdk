@@ -122,6 +122,7 @@ impl<T: StorageProcessor> IndexerProcessorImpl<T> {
         let all_unconsumed = self.storage.get_all_un_consumed_txs().await?;
         info!("all unconsumed txs:{:?}", all_unconsumed);
         let txs = self.btc_client.get_raw_mempool()?;
+        info!("mempool txs len:{:?}", txs.len());
         for tx_id in txs {
             debug!("get tx from mempool or db:{:?}", &tx_id);
             tx.send(DispatchEvent::IndexerEvent(
